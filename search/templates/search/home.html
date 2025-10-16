@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Research Paper Aggregator</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .search-box { margin: 20px 0; }
+        input[type="text"] { width: 300px; padding: 8px; }
+        button { padding: 8px 16px; background: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .paper-card { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .paper-card h3 { margin: 0 0 10px 0; }
+        .loading { color: #666; font-style: italic; }
+    </style>
+</head>
+<body>
+    <h1>AI Research Paper Aggregator</h1>
+
+    <div class="search-box">
+        <!-- Add CSRF token and change to GET -->
+        <form hx-get="/api/search/" hx-target="#results" hx-indicator="#loading">
+            {% csrf_token %}
+            <input type="text" name="q" placeholder="Search for papers (e.g., machine learning 2023)..." required>
+            <button type="submit">Search</button>
+        </form>
+        <div id="loading" class="loading" style="display: none;">Searching...</div>
+    </div>
+
+    <div id="results">
+        <!-- Search results will appear here -->
+        <p>Enter a search query to find research papers.</p>
+    </div>
+
+    <script>
+        // Show loading indicator
+        document.body.addEventListener('htmx:beforeRequest', function() {
+            document.getElementById('loading').style.display = 'block';
+        });
+        document.body.addEventListener('htmx:afterRequest', function() {
+            document.getElementById('loading').style.display = 'none';
+        });
+    </script>
+</body>
+</html>

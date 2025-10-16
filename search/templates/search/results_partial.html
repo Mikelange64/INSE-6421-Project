@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Title</title>
+</head>
+<body>
+  <h2>Results for "{{ query }}"</h2>
+
+  {% for paper in results %}
+  <div class="paper-card">
+      <h3>{{ paper.title }}</h3>
+      <p><strong>Authors:</strong> {{ paper.authors }}</p>
+      <p><strong>Source:</strong> {{ paper.source|upper }} {% if paper.year %}({{ paper.year }}){% endif %}</p>
+      <p><strong>Abstract:</strong> {{ paper.abstract }}</p>
+      <a href="{{ paper.link }}" target="_blank">Read Paper →</a>
+  </div>
+  {% endfor %}
+
+  <p><em>Found {{ results|length }} results</em></p>
+</body>
+</html>
