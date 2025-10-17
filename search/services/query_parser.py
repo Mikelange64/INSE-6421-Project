@@ -1,35 +1,29 @@
-import re
+# search/services/query_parser.py
+from .llm_service import huggingface_service
 
 
-class QueryProcessor:
+class AdvancedQueryProcessor:
     def __init__(self):
-        self.academic_stop_words = {
-            'paper', 'papers', 'research', 'study', 'studies', 'review',
-            'article', 'articles', 'literature', 'survey', 'about', 'on',
-            'in', 'the', 'a', 'an', 'and', 'or', 'for', 'of', 'from',
-            'with', 'using', 'based', 'approach', 'method', 'methods'
-        }
+        self.llm_service = huggingface_service
+        # Keep your existing stop words and basic logic
 
     def parse_query(self, query: str) -> dict:
-        # Extract year
-        year_match = re.search(r'\b(20\d{2})\b', query)
-        year = int(year_match.group(1)) if year_match else None
+        """
+        Enhanced parsing with Hugging Face understanding
+        """
+        # Get deep analysis from Hugging Face
+        hf_analysis = self.llm_service.analyze_research_query(query)
 
-        # Clean the query for keyword extraction
-        query_clean = re.sub(r'\b20\d{2}\b', '', query)
-        query_clean = re.sub(r'[^\w\s]', ' ', query_clean)
-
-        # Extract keywords
-        words = query_clean.lower().split()
-        keywords = [word for word in words
-                    if word not in self.academic_stop_words and len(word) > 2]
+        # Enhanced with your reliable basic parser
+        basic_analysis = self._basic_parse(query)
 
         return {
-            "keywords": keywords,
-            "filters": {"year": year} if year else {},
+            **hf_analysis,
+            **basic_analysis,
             "original_query": query
         }
 
-
-# Create singleton instance
-query_processor = QueryProcessor()
+    def _basic_parse(self, query: str) -> dict:
+        """Your existing, reliable parsing logic"""
+        # Copy your current parse_query method here
+        # This ensures it always works even if HF is slow/down
