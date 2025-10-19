@@ -43,16 +43,17 @@ class HuggingFaceService:
         Use zero-shot classification to understand query type
         """
         url = f"https://api-inference.huggingface.co/models/{self.models['intent']}"
-        headers = {"Authorization": "Bearer self.{api_token}"}
+        headers = {"Authorization": f"Bearer {self.api_token}"}
 
         # Common research query types
         candidate_labels = [
-            "find specific papers",
-            "literature review",
+            "find specific research papers",
+            "summarize papers",
             "empirical studies",
             "theoretical research",
             "recent developments",
-            "comprehensive survey"
+            "comprehensive survey",
+            "rank papers by relevance"
         ]
 
         payload = {
@@ -69,8 +70,9 @@ class HuggingFaceService:
                     "confidence": result['scores'][0],
                     "all_intents": list(zip(result['labels'], result['scores']))
                 }
-        except:
-            pass
+        except (requests.RequestException, ValueError, KeyError, Exception) as e:
+            # Log for debugging
+            print(f"Error in _classify_intent: {e}")
 
         return {"primary_intent": "find specific papers", "confidence": 0.8}
 
@@ -79,7 +81,7 @@ class HuggingFaceService:
         Extract research-related entities using NER
         """
         url = f"https://api-inference.huggingface.co/models/{self.models['ner']}"
-        headers = {"Authorization": "Bearer {self.api_token}"}
+        headers = {"Authorization": f"Bearer {self.api_token}"}
 
         payload = {"inputs": query}
 
@@ -93,8 +95,9 @@ class HuggingFaceService:
                     if entity['entity_group'] in ['ORG', 'MISC', 'PER']
                 ]
                 return relevant_entities
-        except:
-            pass
+        except (requests.RequestException, ValueError, KeyError, Exception) as e:
+            # Log for debugging
+            print(f"Error in _classify_intent: {e}")
 
         return []
 
@@ -120,7 +123,7 @@ class HuggingFaceService:
         # Extract keywords
         words = query_clean.lower().split()
         keywords = [word for word in words
-                    if word not in self.academic_stop_words and len(word) > 2]
+                    if word not in academic_stop_words and len(word) > 2]
 
         return {
             "keywords": keywords,
@@ -128,13 +131,12 @@ class HuggingFaceService:
             "original_query": query
         }
 
-
     def summarize_abstract(self, abstract: str, max_length: int = 150) -> str:
             """
             Summarize paper abstracts
             """
             url = f"https://api-inference.huggingface.co/models/{self.models['summarization']}"
-            headers = {"Authorization": "Bearer {self.api_token}"}
+            headers = {"Authorization": f"Bearer {self.api_token}"}
 
             payload = {
                 "inputs": abstract,
@@ -145,8 +147,9 @@ class HuggingFaceService:
                 response = requests.post(url, headers=headers, json=payload, timeout=15)
                 if response.status_code == 200:
                     return response.json()[0]['summary_text']
-            except:
-                pass
+            except (requests.RequestException, ValueError, KeyError, Exception) as e:
+                # Log for debugging
+                print(f"Error in _classify_intent: {e}")
 
             # Fallback: return first 150 chars
             return abstract[:147] + "..." if len(abstract) > 150 else abstract

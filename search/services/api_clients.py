@@ -19,7 +19,6 @@ class ArXivClient:
             }
         ]
 
-
 class PubMedClient:
     def search(self, parsed_query: dict) -> list:
         """
