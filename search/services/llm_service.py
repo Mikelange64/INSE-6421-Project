@@ -47,14 +47,15 @@ class HuggingFaceService:
 
         # Common research query types
         candidate_labels = [
-            "find specific research papers",
-            "summarize papers",
-            "empirical studies",
-            "theoretical research",
-            "recent developments",
-            "comprehensive survey",
-            "rank papers by relevance"
-        ]
+            "find specific papers",    # Targeted search
+            "literature review",       # Broad overview
+            "empirical studies",       # Experimental work
+            "theoretical research",    # Mathematical/conceptual
+            "recent developments",     # Latest papers
+            "highly cited papers",     # Influential work
+            "practical applications",  # Real-world use cases
+            "comprehensive survey"     # Systematic review
+]
 
         payload = {
             "inputs": query,

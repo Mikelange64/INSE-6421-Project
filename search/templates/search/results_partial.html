@@ -1,22 +1,136 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Title</title>
-</head>
-<body>
-  <h2>Results for "{{ query }}"</h2>
+<div class="results-header">
+    <h2>Results for "{{ query }}"</h2>
+    <span class="results-count">{{ results|length }} paper{{ results|length|pluralize }}</span>
+</div>
 
-  {% for paper in results %}
-  <div class="paper-card">
-      <h3>{{ paper.title }}</h3>
-      <p><strong>Authors:</strong> {{ paper.authors }}</p>
-      <p><strong>Source:</strong> {{ paper.source|upper }} {% if paper.year %}({{ paper.year }}){% endif %}</p>
-      <p><strong>Abstract:</strong> {{ paper.abstract }}</p>
-      <a href="{{ paper.link }}" target="_blank">Read Paper →</a>
-  </div>
-  {% endfor %}
+{% for paper in results %}
+<div class="paper-card">
+    <h3>{{ paper.title }}</h3>
 
-  <p><em>Found {{ results|length }} results</em></p>
-</body>
-</html>
+    <div class="paper-meta">
+        <span><strong>Authors:</strong> {{ paper.authors }}</span>
+        <span class="source-badge">{{ paper.source|upper }}</span>
+        {% if paper.year %}
+        <span><strong>Year:</strong> {{ paper.year }}</span>
+        {% endif %}
+    </div>
+
+    <div class="paper-abstract">
+        {{ paper.abstract|truncatewords:50 }}
+    </div>
+
+    <a href="{{ paper.link }}" target="_blank" class="paper-link">
+        Read Full Paper →
+    </a>
+</div>
+{% endfor %}
+
+<style>
+    .results-header {
+        background: white;
+        border-radius: 15px;
+        padding: 20px 25px;
+        margin-bottom: 20px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .results-header h2 {
+        color: #2d3748;
+        font-size: 1.5rem;
+    }
+
+    .results-count {
+        background: #667eea;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-weight: 600;
+    }
+
+    .paper-card {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 20px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        transition: all 0.3s ease;
+        border-left: 4px solid #667eea;
+    }
+
+    .paper-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+    }
+
+    .paper-card h3 {
+        color: #2d3748;
+        margin-bottom: 12px;
+        font-size: 1.4rem;
+        line-height: 1.4;
+    }
+
+    .paper-meta {
+        display: flex;
+        gap: 20px;
+        margin-bottom: 15px;
+        flex-wrap: wrap;
+    }
+
+    .paper-meta span {
+        color: #666;
+        font-size: 0.9rem;
+    }
+
+    .paper-meta strong {
+        color: #667eea;
+    }
+
+    .source-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        background: #667eea;
+        color: white;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .paper-abstract {
+        color: #4a5568;
+        line-height: 1.6;
+        margin-bottom: 15px;
+    }
+
+    .paper-link {
+        display: inline-block;
+        padding: 10px 20px;
+        background: #667eea;
+        color: white;
+        text-decoration: none;
+        border-radius: 8px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .paper-link:hover {
+        background: #764ba2;
+        transform: translateX(5px);
+    }
+
+    @media (max-width: 768px) {
+        .results-header {
+            flex-direction: column;
+            gap: 10px;
+            text-align: center;
+        }
+
+        .paper-meta {
+            flex-direction: column;
+            gap: 8px;
+        }
+    }
+</style>

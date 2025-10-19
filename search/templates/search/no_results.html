@@ -1,10 +1,24 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Title</title>
-</head>
-<body>
-  <p>No results found for "{{ query }}". Try different keywords.</p>
-</body>
-</html>
+<div class="no-results">
+    <h3>🔍 No results found</h3>
+    <p>We couldn't find any papers for <strong>"{{ query }}"</strong></p>
+    <p style="margin-top: 10px; color: #999;">Try different keywords or broader search terms</p>
+</div>
+
+<style>
+    .no-results {
+        background: white;
+        border-radius: 15px;
+        padding: 40px;
+        text-align: center;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+
+    .no-results h3 {
+        color: #667eea;
+        margin-bottom: 10px;
+    }
+
+    .no-results p {
+        color: #666;
+    }
+</style>
