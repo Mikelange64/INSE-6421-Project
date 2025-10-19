@@ -193,7 +193,6 @@ class ArxivClient:
 
         return papers
 
-
 class PubMedClient:
     """
     Client for PubMed E-utilities API

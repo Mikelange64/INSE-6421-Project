@@ -99,3 +99,55 @@ class SearchViewTests(TestCase):
         # Check that both APIs were called
         mock_arxiv.assert_called_once()
         mock_pubmed.assert_called_once()
+
+
+class RealAPIIntegrationTests(TestCase):
+    """
+    Integration tests with real API calls to verify the system works end-to-end
+    These might be slower but verify actual functionality
+    """
+
+    def test_real_api_integration(self):
+        """Test that real API calls return actual papers"""
+        from .services.query_parser import query_processor
+        from .services.api_clients import arxiv_client, pubmed_client
+
+        # Test a real query
+        query = "machine learning in healthcare"
+        parsed = query_processor.parse_query(query)
+
+        # These should return real papers (not mock data)
+        arxiv_results = arxiv_client.search(parsed)
+        pubmed_results = pubmed_client.search(parsed)
+
+        # Verify we got results
+        self.assertGreater(len(arxiv_results), 0, "Should find ArXiv papers")
+        self.assertGreater(len(pubmed_results), 0, "Should find PubMed papers")
+
+        # Verify paper structure
+        if arxiv_results:
+            paper = arxiv_results[0]
+            self.assertIn('title', paper)
+            self.assertIn('authors', paper)
+            self.assertIn('abstract', paper)
+            self.assertIn('source', paper)
+            self.assertEqual(paper['source'], 'arxiv')
+
+        print(f"✅ Real API Test: Found {len(arxiv_results)} ArXiv and {len(pubmed_results)} PubMed papers")
+
+    def test_complex_query_processing(self):
+        """Test AI understanding of complex queries"""
+        from .services.query_parser import query_processor
+
+        test_queries = [
+            "machine learning in healthcare 2023",
+            "quantum computing recent papers",
+            "transformer models natural language processing"
+        ]
+
+        for query in test_queries:
+            parsed = query_processor.parse_query(query)
+            self.assertIn('keywords', parsed)
+            self.assertIn('intent', parsed)
+            self.assertIn('entities', parsed)
+            print(f"✅ '{query}' → Keywords: {parsed['keywords']}")
