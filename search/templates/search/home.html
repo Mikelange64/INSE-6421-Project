@@ -58,8 +58,7 @@
         }
 
         .sidebar-logo img {
-            width:100
-            %;
+            width:100%;
             height:100%;
             object-fit:contain
         }
@@ -101,31 +100,37 @@
         .nav-item {
             display:flex;
             align-items:center;
-            padding:12px 15px;
-            color:#9a9a9a;
+            padding: 12px 0px;
+            color:#fff;
             cursor:pointer;
             transition:all .12s;
             white-space:nowrap;
             border-radius:8px;
-            margin:4px 8px
+            margin:4px 8px;
+            background:transparent;
         }
-        .nav-item .nav-icon {
-            min-width:40px;
-            width: 100%
+        .nav-item .nav-icon {            
+            width:56px;
+            min-width:56px;
+            height:40px;
             font-size:32px;
             display:flex;
             align-items:center;
-            justify-content:center
+            justify-content:center;
         }
         .nav-icon img {
-            width: 40px;
-            height: 40px;
-            object-fit: contain;
-            filter: brightness(0.6); /* Makes icons gray to match emoji color */
-            transition: filter 0.12s;
+            width:40px;
+            height:40px;
+            object-fit:contain;
+            filter:brightness(0) invert(1);
+            transition:filter 0.12s;
         }
         .nav-item:hover .nav-icon img {
-            filter: brightness(1); /* Full color on hover */
+            filter:brightness(0) invert(1);
+        }
+        .nav-icon .fallback-icon {
+            font-size:32px;
+            filter:grayscale(1) brightness(2);
         }
         .nav-item .nav-label {
             opacity:0;
@@ -135,10 +140,17 @@
             transition:opacity .18s ease
         }
         .nav-item:hover {
-            background:#2a2a2a;color:#fff
+            background:#2a2a2a;
+            color:#fff;
         }
         .nav-item.active {
-            background:#2a2a2a;color:#fff
+            background:transparent;
+            color:#fff;
+        }
+        .settings-item {
+            margin-top:auto;
+            border-top:1px solid #2a2a2a;
+            padding-top:20px !important;
         }
 
         /* IMPORTANT: do NOT expand sidebar on .sidebar:hover — expansion is controlled by JS only */
@@ -829,7 +841,7 @@
             align-items:center;
             justify-content:center;
             cursor:pointer;
-            font-size:24px;
+            font-size:20px;
             color:#666;
             transition:all .12s;
             flex-shrink:0
@@ -967,7 +979,7 @@
             <div class="sidebar-content">
                 <div class="sidebar-nav">
                     <!-- Chats Section -->
-                    <div class="nav-item active" id="nav-chats" title="View conversation history">
+                    <div class="nav-item" id="nav-chats" title="View conversation history">
                         <span class="nav-icon">
                           <img src="{% static 'images/chats_icon.png' %}" alt="💬" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
                           <span class="fallback-icon" style="display:none;">💬</span>
@@ -1023,11 +1035,9 @@
                 </div>
 
                 <!-- Settings at bottom -->
-                <div class="nav-item" style="border-top: 1px solid #2a2a2a;" id="nav-settings" title="Settings and options" onclick="toggleDropdown()">
+                <div class="nav-item settings-item" id="nav-settings" title="Settings and options" onclick="toggleDropdown()">
                     <span class="nav-icon">
-                      <img src="{% static 'images/settings_icon.png' %}" alt="⚙️"
-                           onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';"
-                           style="width: 20px; height: 20px; vertical-align: middle;">
+                      <img src="{% static 'images/settings_icon.png' %}" alt="⚙️" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
                       <span class="fallback-icon" style="display:none;">⚙️</span>
                     </span>
                     <span class="nav-label">Settings</span>
@@ -1082,7 +1092,7 @@
                 {% csrf_token %}
                 <div class="chat-input-container">
                     <div class="chat-input-wrapper">
-                        <div class="input-plus-button" title="Attach file" onclick="toggleUploadModal()">+</div>
+                        <div class="input-plus-button" title="Attach file" onclick="toggleUploadModal()">＋</div>
                         <textarea
                             id="user-input"
                             placeholder="Ask about research papers..."
