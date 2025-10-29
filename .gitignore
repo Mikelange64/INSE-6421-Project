@@ -33,6 +33,10 @@ local_settings.py
 db.sqlite3
 media/
 
+# Application logs
+logs/
+*.log
+
 # Environment variables
 .env
 .venv
@@ -54,3 +58,4 @@ ai_paper_aggregator/product requirements.txt
 ai_paper_aggregator/summary.txt
 search/old tests.txt
 search/test.txt
+LOGGING.md

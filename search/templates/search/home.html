@@ -1,10 +1,11 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mayele - Research Assistant</title>
-    {% load static %}
+    <link rel="icon" type="image/png" href="{% static 'images/mayele_logo.png' %}">
     <style>
         *{
             margin:0;
@@ -110,10 +111,21 @@
         }
         .nav-item .nav-icon {
             min-width:40px;
-            font-size:20px;
+            width: 100%
+            font-size:32px;
             display:flex;
             align-items:center;
             justify-content:center
+        }
+        .nav-icon img {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
+            filter: brightness(0.6); /* Makes icons gray to match emoji color */
+            transition: filter 0.12s;
+        }
+        .nav-item:hover .nav-icon img {
+            filter: brightness(1); /* Full color on hover */
         }
         .nav-item .nav-label {
             opacity:0;
@@ -392,6 +404,360 @@
             background:#4d5fb5
         }
 
+        /* Paper Card Actions */
+        .paper-card-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .paper-card-actions .paper-card-button {
+            flex: 2;
+        }
+
+        .citation-btn {
+            background: #10b981 !important;
+            flex: 1;
+            font-size: 0.85rem !important;
+            padding: 8px 12px !important;
+        }
+
+        .citation-btn:hover {
+            background: #059669 !important;
+        }
+
+        /* Citation Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .citation-modal-content {
+            padding: 0;
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            font-size: 20px;
+            color: #1f2937;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 32px;
+            color: #6b7280;
+            cursor: pointer;
+            line-height: 1;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .modal-close:hover {
+            background: #f3f4f6;
+            color: #1f2937;
+        }
+
+        .citation-styles {
+            display: flex;
+            gap: 8px;
+            padding: 20px 24px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .citation-style-btn {
+            flex: 1;
+            padding: 10px 16px;
+            border: 1px solid #d1d5db;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+            color: #6b7280;
+        }
+
+        .citation-style-btn:hover {
+            border-color: #3b82f6;
+            color: #3b82f6;
+        }
+
+        .citation-style-btn.active {
+            background: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+
+        .citation-output-container {
+            padding: 20px 24px;
+            min-height: 150px;
+        }
+
+        .citation-output {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #1f2937;
+            background: #f9fafb;
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .modal-actions {
+            padding: 20px 24px;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        .modal-btn {
+            padding: 10px 20px;
+            border: 1px solid #d1d5db;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .modal-btn:hover {
+            background: #f3f4f6;
+        }
+
+        .modal-btn.primary {
+            background: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+
+        .modal-btn.primary:hover {
+            background: #2563eb;
+        }
+
+        /* Upload Modal Styles */
+        .upload-modal-content {
+            max-width: 500px;
+        }
+
+        .upload-options {
+            padding: 20px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .upload-option {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .upload-option:hover {
+            border-color: #3b82f6;
+            background: #f0f9ff;
+        }
+
+        .upload-icon {
+            font-size: 32px;
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f3f4f6;
+            border-radius: 10px;
+        }
+
+        .upload-text {
+            flex: 1;
+        }
+
+        .upload-title {
+            font-weight: 600;
+            color: #1f2937;
+            font-size: 16px;
+            margin-bottom: 4px;
+        }
+
+        .upload-desc {
+            font-size: 13px;
+            color: #6b7280;
+        }
+
+        .upload-note {
+            padding: 16px 24px;
+            background: #f0f9ff;
+            color: #1e40af;
+            text-align: center;
+            font-size: 14px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        /* Center + button vertically */
+        .input-plus-button {
+            align-self: center;
+        }
+
+        /* Share Modal Styles */
+        .share-modal-content {
+            max-width: 550px;
+        }
+
+        .share-content {
+            padding: 20px 24px;
+        }
+
+        .share-description {
+            color: #4b5563;
+            font-size: 15px;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .share-link-container {
+            margin-bottom: 20px;
+        }
+
+        .share-link-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #1f2937;
+            background: #f9fafb;
+            cursor: text;
+            transition: all 0.2s;
+        }
+
+        .share-link-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            background: white;
+        }
+
+        .share-link-input:hover {
+            border-color: #d1d5db;
+        }
+
+        .share-info {
+            background: #f0f9ff;
+            padding: 16px;
+            border-radius: 8px;
+            border-left: 4px solid #3b82f6;
+        }
+
+        .share-info p {
+            margin: 0;
+            font-size: 13px;
+            color: #1e40af;
+            line-height: 1.6;
+        }
+
+        .share-info p + p {
+            margin-top: 8px;
+        }
+
+        /* Settings Modal Styles */
+        .settings-modal-content {
+            max-width: 400px;
+        }
+
+        .settings-options {
+            padding: 12px;
+        }
+
+        .settings-option {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 8px;
+        }
+
+        .settings-option:hover {
+            background: #f3f4f6;
+        }
+
+        .settings-option.danger-option:hover {
+            background: #fee2e2;
+        }
+
+        .settings-icon {
+            font-size: 24px;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .settings-text {
+            flex: 1;
+        }
+
+        .settings-title {
+            font-weight: 600;
+            color: #1f2937;
+            font-size: 15px;
+            margin-bottom: 2px;
+        }
+
+        .settings-desc {
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .danger-option .settings-title {
+            color: #dc2626;
+        }
+
         /* Welcome */
         .welcome-message {
             text-align:center;
@@ -601,10 +967,14 @@
             <div class="sidebar-content">
                 <div class="sidebar-nav">
                     <!-- Chats Section -->
-                    <div class="nav-item active" id="nav-chats">
-                        <span class="nav-icon">💬</span>
+                    <div class="nav-item active" id="nav-chats" title="View conversation history">
+                        <span class="nav-icon">
+                          <img src="{% static 'images/chats_icon.png' %}" alt="💬" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+                          <span class="fallback-icon" style="display:none;">💬</span>
+                        </span>
                         <span class="nav-label">Chats</span>
                     </div>
+                      
                     <div class="nav-section" id="chats-section">
                         <div class="section-group">
                             <div class="section-title">This Month</div>
@@ -625,10 +995,14 @@
                     </div>
 
                     <!-- History Section -->
-                    <div class="nav-item" id="nav-history">
-                        <span class="nav-icon">📜</span>
+                    <div class="nav-item" id="nav-history" title="View papers you've read">
+                        <span class="nav-icon">
+                          <img src="{% static 'images/history_icon.png' %}" alt="📜" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+                          <span class="fallback-icon" style="display:none;">📜</span>
+                        </span>
                         <span class="nav-label">Paper History</span>
                     </div>
+                      
                     <div class="nav-section" id="history-section">
                         <div class="section-group">
                             <div class="section-title">This Month</div>
@@ -649,10 +1023,16 @@
                 </div>
 
                 <!-- Settings at bottom -->
-                <div class="nav-item" style="border-top: 1px solid #2a2a2a;">
-                    <span class="nav-icon">⚙️</span>
+                <div class="nav-item" style="border-top: 1px solid #2a2a2a;" id="nav-settings" title="Settings and options" onclick="toggleDropdown()">
+                    <span class="nav-icon">
+                      <img src="{% static 'images/settings_icon.png' %}" alt="⚙️"
+                           onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';"
+                           style="width: 20px; height: 20px; vertical-align: middle;">
+                      <span class="fallback-icon" style="display:none;">⚙️</span>
+                    </span>
                     <span class="nav-label">Settings</span>
                 </div>
+                  
             </div>
         </div>
 
@@ -670,13 +1050,8 @@
                 </div>
             </div>
 
-            <!-- Dropdown Menu -->
-            <div class="dropdown-menu" id="dropdown-menu">
-                <div class="dropdown-item" onclick="exportPDF()">📄 Export as PDF</div>
-                <div class="dropdown-item" onclick="exportDOCX()">📝 Export as DOCX</div>
-                <div class="dropdown-item danger" onclick="deleteConversation()">🗑️ Delete Conversation</div>
-                <div class="dropdown-item" onclick="archiveConversation()">📦 Archive Conversation</div>
-            </div>
+            <!-- Dropdown Menu (hidden, replaced by modal) -->
+            <div class="dropdown-menu" id="dropdown-menu" style="display:none;"></div>
 
             <!-- Chat Area -->
             <div class="chat-container">
@@ -707,7 +1082,7 @@
                 {% csrf_token %}
                 <div class="chat-input-container">
                     <div class="chat-input-wrapper">
-                        <div class="input-plus-button" title="Attach file">+</div>
+                        <div class="input-plus-button" title="Attach file" onclick="toggleUploadModal()">+</div>
                         <textarea
                             id="user-input"
                             placeholder="Ask about research papers..."
@@ -723,7 +1098,160 @@
     <!-- Toast Notification -->
     <div class="toast" id="toast"></div>
 
+    <!-- Citation Modal -->
+    <div id="citation-modal" class="modal" style="display:none;" onclick="if(event.target === this) closeCitationModal()">
+        <div class="modal-content citation-modal-content">
+            <div class="modal-header">
+                <h3>📚 Get Citation</h3>
+                <button class="modal-close" onclick="closeCitationModal()">×</button>
+            </div>
+            
+            <div class="citation-styles">
+                <button class="citation-style-btn active" onclick="generateCitation(currentPaperIndex, 'apa'); setActiveStyle(this)">APA</button>
+                <button class="citation-style-btn" onclick="generateCitation(currentPaperIndex, 'mla'); setActiveStyle(this)">MLA</button>
+                <button class="citation-style-btn" onclick="generateCitation(currentPaperIndex, 'chicago'); setActiveStyle(this)">Chicago</button>
+                <button class="citation-style-btn" onclick="generateCitation(currentPaperIndex, 'ieee'); setActiveStyle(this)">IEEE</button>
+            </div>
+            
+            <div class="citation-output-container">
+                <div id="citation-output" class="citation-output">Select a citation style above</div>
+            </div>
+            
+            <div class="modal-actions">
+                <button class="modal-btn primary" onclick="copyCitation()">📋 Copy</button>
+                <button class="modal-btn" onclick="closeCitationModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Modal -->
+    <div id="upload-modal" class="modal" style="display:none;" onclick="if(event.target === this) toggleUploadModal()">
+        <div class="modal-content upload-modal-content">
+            <div class="modal-header">
+                <h3>📎 Attach Files</h3>
+                <button class="modal-close" onclick="toggleUploadModal()">×</button>
+            </div>
+            
+            <div class="upload-options">
+                <div class="upload-option" onclick="alert('Document upload coming soon!')">
+                    <div class="upload-icon">📄</div>
+                    <div class="upload-text">
+                        <div class="upload-title">Documents</div>
+                        <div class="upload-desc">PDF, DOCX, TXT</div>
+                    </div>
+                </div>
+                
+                <div class="upload-option" onclick="alert('Image upload coming soon!')">
+                    <div class="upload-icon">🖼️</div>
+                    <div class="upload-text">
+                        <div class="upload-title">Images</div>
+                        <div class="upload-desc">PNG, JPG, GIF</div>
+                    </div>
+                </div>
+                
+                <div class="upload-option" onclick="alert('Data file upload coming soon!')">
+                    <div class="upload-icon">📊</div>
+                    <div class="upload-text">
+                        <div class="upload-title">Data Files</div>
+                        <div class="upload-desc">CSV, XLSX, JSON</div>
+                    </div>
+                </div>
+                
+                <div class="upload-option" onclick="alert('URL paste coming soon!')">
+                    <div class="upload-icon">🔗</div>
+                    <div class="upload-text">
+                        <div class="upload-title">Paste URL</div>
+                        <div class="upload-desc">Web link or DOI</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="upload-note">
+                ℹ️ File upload functionality coming soon
+            </div>
+        </div>
+    </div>
+
+    <!-- Share Modal -->
+    <div id="share-modal" class="modal" style="display:none;" onclick="if(event.target === this) closeShareModal()">
+        <div class="modal-content share-modal-content">
+            <div class="modal-header">
+                <h3>🔗 Share Conversation</h3>
+                <button class="modal-close" onclick="closeShareModal()">×</button>
+            </div>
+            
+            <div class="share-content">
+                <p class="share-description">Share this conversation with anyone using the link below:</p>
+                
+                <div class="share-link-container">
+                    <input 
+                        type="text" 
+                        id="share-link-input" 
+                        class="share-link-input" 
+                        readonly 
+                        value="Generating link..."
+                    />
+                </div>
+                
+                <div class="share-info">
+                    <p>🔒 Anyone with this link can view this conversation</p>
+                    <p>📊 View count will be tracked</p>
+                </div>
+            </div>
+            
+            <div class="modal-actions">
+                <button class="modal-btn primary" onclick="copyShareLink()">📋 Copy Link</button>
+                <button class="modal-btn" onclick="closeShareModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal" style="display:none;" onclick="if(event.target === this) closeSettingsModal()">
+        <div class="modal-content settings-modal-content">
+            <div class="modal-header">
+                <h3>⚙️ Settings</h3>
+                <button class="modal-close" onclick="closeSettingsModal()">×</button>
+            </div>
+            
+            <div class="settings-options">
+                <div class="settings-option" onclick="clearCurrentConversation()">
+                    <div class="settings-icon">🗑️</div>
+                    <div class="settings-text">
+                        <div class="settings-title">Clear Conversation</div>
+                        <div class="settings-desc">Remove current chat</div>
+                    </div>
+                </div>
+                
+                <div class="settings-option" onclick="exportConversation()">
+                    <div class="settings-icon">📄</div>
+                    <div class="settings-text">
+                        <div class="settings-title">Export</div>
+                        <div class="settings-desc">Download as text file</div>
+                    </div>
+                </div>
+                
+                <div class="settings-option" onclick="archiveConversation()">
+                    <div class="settings-icon">📦</div>
+                    <div class="settings-text">
+                        <div class="settings-title">Archive</div>
+                        <div class="settings-desc">Coming soon</div>
+                    </div>
+                </div>
+                
+                <div class="settings-option danger-option" onclick="deleteAllHistory()">
+                    <div class="settings-icon">⚠️</div>
+                    <div class="settings-text">
+                        <div class="settings-title">Delete All</div>
+                        <div class="settings-desc">Permanently remove history</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
+        let lastSearchResults = [];
         const chatMessages = document.getElementById('chat-messages');
         const userInput = document.getElementById('user-input');
         const sidebar = document.querySelector('.sidebar');
@@ -837,10 +1365,11 @@
 
         // If you want to display paper cards from an API payload, use this helper:
         function displayPapers(papers) {
+            lastSearchResults = papers; // ← ADD THIS LINE to store papers globally
             const messageDiv = document.createElement('div');
             messageDiv.className = 'message agent';
             let papersHtml = '<div class="message-avatar">🤖</div><div class="message-content">';
-            papers.slice(0,5).forEach(paper => {
+            papers.slice(0,5).forEach((paper, i) => {
                 const stars = '⭐'.repeat(paper.relevance_score || 3);
                 papersHtml += `
                     <div class="paper-card">
@@ -851,7 +1380,10 @@
                             ${paper.year || 'N/A'} ${stars}
                         </div>
                         <div class="paper-card-abstract">${escapeHtml((paper.abstract||'').substring(0,200))}...</div>
-                        <a href="${paper.link || '#'}" target="_blank" class="paper-card-button">Read Paper</a>
+                        <div class="paper-card-actions">
+                            <a href="${paper.link || '#'}" target="_blank" class="paper-card-button" onclick="savePaperClick(${i}); return true;">Read Paper</a>
+                            <button class="paper-card-button citation-btn" onclick="showCitationModal(${i})">Get Citation</button>
+                        </div>
                     </div>
                 `;
             });
@@ -1003,4 +1535,428 @@
         // Make startNewChat globally available
         window.startNewChat = startNewChat;
 
+        // ==================== CITATION MODAL FUNCTIONS ====================
+        let currentPaperIndex = 0;
+
+        function showCitationModal(paperIndex) {
+            currentPaperIndex = paperIndex;
+            const paper = lastSearchResults[paperIndex];
+            if (!paper) {
+                alert('Paper not found');
+                return;
+            }
+            
+            document.getElementById('citation-modal').style.display = 'flex';
+            generateCitation(paperIndex, 'apa'); // Default to APA
+        }
+
+        function closeCitationModal() {
+            document.getElementById('citation-modal').style.display = 'none';
+        }
+
+        async function generateCitation(paperIndex, style) {
+            const citationOutput = document.getElementById('citation-output');
+            citationOutput.textContent = 'Generating citation...';
+            
+            try {
+                const response = await fetch('/api/citations/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: `indices[]=${paperIndex}&style=${style}`
+                });
+                
+                const data = await response.json();
+                if (data.citations && data.citations.length > 0) {
+                    citationOutput.textContent = data.citations[0];
+                } else {
+                    citationOutput.textContent = 'Error generating citation';
+                }
+            } catch (error) {
+                citationOutput.textContent = 'Error: ' + error.message;
+            }
+        }
+
+        function setActiveStyle(btn) {
+            document.querySelectorAll('.citation-style-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        }
+
+        function copyCitation() {
+            const citationText = document.getElementById('citation-output').textContent;
+            navigator.clipboard.writeText(citationText).then(() => {
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = '✓ Copied!';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                }, 2000);
+            });
+        }
+
+        // ==================== PAPER HISTORY FUNCTIONS ====================
+        function savePaperClick(paperIndex) {
+            try {
+                const paper = lastSearchResults[paperIndex];
+                if (!paper) {
+                    console.error('Paper not found at index:', paperIndex);
+                    return;
+                }
+                
+                console.log('Saving paper to history:', paper.title);
+                
+                fetch('/api/save-paper/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify(paper)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Paper saved successfully:', data);
+                    // Reload paper history to show the new paper
+                    loadPaperHistory();
+                })
+                .catch(err => console.error('Failed to save paper:', err));
+            } catch(e) {
+                console.error('Error saving paper:', e);
+            }
+        }
+
+        // ==================== SHARE CONVERSATION FUNCTIONS ====================
+        let currentShareUrl = '';
+
+        async function shareConversation() {
+            // Show modal immediately
+            document.getElementById('share-modal').style.display = 'flex';
+            document.getElementById('share-link-input').value = 'Generating link...';
+            
+            try {
+                const response = await fetch('/api/share/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    }
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    currentShareUrl = data.share_url;
+                    document.getElementById('share-link-input').value = data.share_url;
+                    // Auto-select the text for easy copying
+                    document.getElementById('share-link-input').select();
+                } else {
+                    document.getElementById('share-link-input').value = 'Error: Could not generate link';
+                    console.error('Share error:', data);
+                }
+            } catch (error) {
+                console.error('Share error:', error);
+                document.getElementById('share-link-input').value = 'Error: Failed to create share link';
+            }
+        }
+
+        function closeShareModal() {
+            document.getElementById('share-modal').style.display = 'none';
+        }
+
+        function copyShareLink() {
+            const input = document.getElementById('share-link-input');
+            input.select();
+            
+            navigator.clipboard.writeText(currentShareUrl).then(() => {
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = '✓ Copied!';
+                btn.style.background = '#10b981';
+                
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.style.background = '';
+                }, 2000);
+            }).catch(err => {
+                console.error('Copy failed:', err);
+                alert('Failed to copy. Please select and copy manually.');
+            });
+        }
+
+        // ==================== UPLOAD MODAL FUNCTIONS ====================
+        function toggleUploadModal() {
+            const modal = document.getElementById('upload-modal');
+            if (modal.style.display === 'none' || !modal.style.display) {
+                modal.style.display = 'flex';
+            } else {
+                modal.style.display = 'none';
+            }
+        }
+
+        // ==================== LOAD HISTORY FUNCTIONS ====================
+        async function loadChatHistory() {
+            try {
+                const response = await fetch('/api/chat-history/');
+                const data = await response.json();
+                
+                const chatsSection = document.getElementById('chats-section');
+                chatsSection.innerHTML = ''; // Always clear mock data
+                
+                if (data.history && data.history.length > 0) {
+                    // Group by date
+                    const grouped = {};
+                    data.history.forEach(chat => {
+                        const date = new Date(chat.timestamp);
+                        const key = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                        if (!grouped[key]) grouped[key] = [];
+                        grouped[key].push(chat);
+                    });
+                    
+                    // Render grouped chats
+                    for (const [period, chats] of Object.entries(grouped)) {
+                        const groupHtml = `
+                            <div class="section-group">
+                                <div class="section-title">${period}</div>
+                                ${chats.slice(0, 5).map((chat, idx) => `
+                                    <div class="section-item" onclick="loadSpecificConversation(${idx}, '${period}')">
+                                        ${chat.user_message.substring(0, 40)}${chat.user_message.length > 40 ? '...' : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        `;
+                        chatsSection.innerHTML += groupHtml;
+                        
+                        // Store chat data for later retrieval
+                        if (!window.chatHistoryData) window.chatHistoryData = {};
+                        if (!window.chatHistoryData[period]) window.chatHistoryData[period] = [];
+                        window.chatHistoryData[period] = chats;
+                    }
+                } else {
+                    // Show empty state
+                    chatsSection.innerHTML = `
+                        <div class="section-group">
+                            <div class="section-title" style="text-align: center; color: #666; padding: 20px;">
+                                No conversations yet
+                            </div>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading chat history:', error);
+                const chatsSection = document.getElementById('chats-section');
+                chatsSection.innerHTML = `
+                    <div class="section-group">
+                        <div class="section-title" style="text-align: center; color: #ef4444; padding: 20px;">
+                            Error loading history
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        async function loadPaperHistory() {
+            try {
+                const response = await fetch('/api/paper-history/');
+                const data = await response.json();
+                
+                const historySection = document.getElementById('history-section');
+                historySection.innerHTML = ''; // Always clear mock data
+                
+                if (data.history && data.history.length > 0) {
+                    // Group by date
+                    const grouped = {};
+                    data.history.forEach(paper => {
+                        const date = new Date(paper.timestamp);
+                        const key = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                        if (!grouped[key]) grouped[key] = [];
+                        grouped[key].push(paper);
+                    });
+                    
+                    // Render grouped papers
+                    for (const [period, papers] of Object.entries(grouped)) {
+                        const groupHtml = `
+                            <div class="section-group">
+                                <div class="section-title">${period}</div>
+                                ${papers.slice(0, 5).map(paper => `
+                                    <div class="section-item" onclick="window.open('${paper.link}', '_blank')">
+                                        ${paper.title.substring(0, 50)}${paper.title.length > 50 ? '...' : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        `;
+                        historySection.innerHTML += groupHtml;
+                    }
+                } else {
+                    // Show empty state
+                    historySection.innerHTML = `
+                        <div class="section-group">
+                            <div class="section-title" style="text-align: center; color: #666; padding: 20px;">
+                                No papers saved yet
+                            </div>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading paper history:', error);
+                const historySection = document.getElementById('history-section');
+                historySection.innerHTML = `
+                    <div class="section-group">
+                        <div class="section-title" style="text-align: center; color: #ef4444; padding: 20px;">
+                            Error loading history
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // Load histories on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadChatHistory();
+            loadPaperHistory();
+        });
+
+        // ==================== LOAD SPECIFIC CONVERSATION ====================
+        function loadSpecificConversation(idx, period) {
+            try {
+                const chat = window.chatHistoryData[period][idx];
+                if (!chat) {
+                    alert('Conversation not found');
+                    return;
+                }
+                
+                // Clear current chat
+                chatMessages.innerHTML = '';
+                
+                // Add the specific conversation's messages
+                addUserMessage(chat.user_message);
+                addAgentMessage(chat.agent_response);
+                
+                // Update title
+                const title = chat.user_message.length > 40 ? chat.user_message.substring(0,40) + '...' : chat.user_message;
+                document.getElementById('conversation-title').textContent = title;
+                
+                // Close sidebar on mobile
+                sidebar.classList.remove('expanded');
+                
+                scrollToBottom();
+            } catch (error) {
+                console.error('Error loading conversation:', error);
+                alert('Failed to load conversation');
+            }
+        }
+
+        // ==================== SETTINGS MODAL FUNCTIONS ====================
+        function toggleDropdown() {
+            const modal = document.getElementById('settings-modal');
+            modal.style.display = 'flex';
+        }
+
+        function closeSettingsModal() {
+            document.getElementById('settings-modal').style.display = 'none';
+        }
+
+        // ==================== DROPDOWN MENU FUNCTIONS ====================
+        async function clearCurrentConversation() {
+            if (!confirm('Are you sure you want to clear the current conversation? This cannot be undone.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/clear/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    }
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    // Refresh the page to show empty conversation
+                    window.location.reload();
+                } else {
+                    alert('Failed to clear conversation');
+                }
+            } catch (error) {
+                console.error('Clear conversation error:', error);
+                alert('Failed to clear conversation');
+            }
+            
+            // Close settings modal
+            closeSettingsModal();
+        }
+
+        function exportConversation() {
+            // Get all messages from the chat
+            const messages = [];
+            document.querySelectorAll('.message').forEach(msg => {
+                const isUser = msg.classList.contains('user');
+                const content = msg.querySelector('.message-content');
+                if (content) {
+                    messages.push({
+                        role: isUser ? 'User' : 'Assistant',
+                        message: content.textContent.trim()
+                    });
+                }
+            });
+            
+            // Create text export
+            let exportText = '=== Mayele Conversation Export ===\\n\\n';
+            exportText += `Date: ${new Date().toLocaleString()}\\n\\n`;
+            exportText += messages.map(m => `[${m.role}]\\n${m.message}\\n`).join('\\n');
+            
+            // Download as text file
+            const blob = new Blob([exportText], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `mayele-conversation-${Date.now()}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            closeSettingsModal();
+        }
+
+        function archiveConversation() {
+            alert('Archive feature coming soon! This will let you save conversations for later reference.');
+            closeSettingsModal();
+        }
+
+        async function deleteAllHistory() {
+            const confirmed = confirm(
+                '⚠️ WARNING: This will permanently delete ALL your conversation and paper history.\\n\\n' +
+                'This action cannot be undone. Are you absolutely sure?'
+            );
+            
+            if (!confirmed) {
+                closeSettingsModal();
+                return;
+            }
+            
+            // Double confirmation
+            const doubleConfirm = confirm('Last chance! Delete EVERYTHING?');
+            if (!doubleConfirm) {
+                closeSettingsModal();
+                return;
+            }
+            
+            try {
+                // Clear conversation
+                await fetch('/api/clear/', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+                });
+                
+                alert('All history deleted. The page will now reload.');
+                window.location.reload();
+            } catch (error) {
+                console.error('Delete history error:', error);
+                alert('Failed to delete history');
+            }
+            
+            closeSettingsModal();
+        }
+
     </script>
+
+</body>
+</html>

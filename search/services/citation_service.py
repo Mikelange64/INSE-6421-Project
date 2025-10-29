@@ -1,5 +1,9 @@
 # search/services/citation_service.py
 from typing import Dict
+from .logging_config import get_logger
+
+# Initialize logger
+logger = get_logger(__name__)
 
 
 class CitationFormatter:
@@ -19,17 +23,22 @@ class CitationFormatter:
             Formatted citation string
         """
         style = style.lower()
+        logger.debug(f"Formatting citation in {style.upper()} style for paper: {paper.get('title', 'Unknown')[:50]}...")
 
-        if style == 'apa':
-            return self._format_apa(paper)
-        elif style == 'mla':
-            return self._format_mla(paper)
-        elif style == 'chicago':
-            return self._format_chicago(paper)
-        elif style == 'ieee':
-            return self._format_ieee(paper)
-        else:
-            return self._format_apa(paper)  # Default to APA
+        try:
+            if style == 'apa':
+                return self._format_apa(paper)
+            elif style == 'mla':
+                return self._format_mla(paper)
+            elif style == 'chicago':
+                return self._format_chicago(paper)
+            elif style == 'ieee':
+                return self._format_ieee(paper)
+            else:
+                return self._format_apa(paper)  # Default to APA
+        except Exception as e:
+            logger.error(f"Citation formatting error for style {style}: {e}")
+            return f"Error formatting citation: {paper.get('title', 'Unknown')}"
 
     def _format_apa(self, paper: Dict) -> str:
         """

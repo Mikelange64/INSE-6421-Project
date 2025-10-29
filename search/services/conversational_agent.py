@@ -8,8 +8,12 @@ from dotenv import load_dotenv
 from .api_clients import arxiv_client, pubmed_client
 from .ranking_service import relevance_ranker
 from .citation_service import citation_formatter
+from .logging_config import get_logger
 
 load_dotenv()
+
+# Initialize logger
+logger = get_logger(__name__)
 
 
 class ResearchAgent:
@@ -56,23 +60,25 @@ class ResearchAgent:
         2. If yes, extract structured query using few-shot prompting
         """
         try:
+            logger.info(f"User query received: '{user_message[:100]}...'")
+            
             # STEP 1: Detect intent (simple, reliable)
             is_search = self._detect_search_intent(user_message)
-
-            print(f"Intent: {'SEARCH' if is_search else 'CONVERSATION'}")
+            intent_type = 'SEARCH' if is_search else 'CONVERSATION'
+            logger.debug(f"Intent detected: {intent_type}")
 
             if is_search:
                 # STEP 2: Extract structured query using few-shot prompting
                 parsed_query = self._extract_query_parameters(user_message)
 
                 if parsed_query:
-                    print(f"Parsed query: {parsed_query}")
+                    logger.debug(f"Query parsed successfully: phrases={parsed_query.get('phrases', [])}, keywords={parsed_query.get('keywords', [])}, filters={parsed_query.get('filters', {})}")
 
                     # STEP 3: Validate query (check for ambiguity/issues)
                     validation = self._validate_query(parsed_query, user_message)
 
                     if validation['needs_clarification']:
-                        print(f"Query needs clarification: {validation['reason']}")
+                        logger.info(f"Query needs clarification: {validation['reason']}")
                         return {
                             'agent_response': validation['message'],
                             'action': 'clarification',
@@ -83,9 +89,12 @@ class ResearchAgent:
                         }
 
                     # Execute search
+                    logger.info("Initiating search across arXiv and PubMed...")
                     results = self._execute_search(parsed_query)
                     self.search_results[session_id] = results
                     self.query_context[session_id] = parsed_query
+
+                    logger.info(f"Search completed: {len(results)} papers found")
 
                     # Generate friendly response
                     result_message = self._generate_result_message(results, user_message)
@@ -100,6 +109,7 @@ class ResearchAgent:
                     }
                 else:
                     # Parsing failed, ask for clarification
+                    logger.warning("Query parsing failed, requesting clarification from user")
                     return {
                         'agent_response': "I couldn't understand your search query. Could you rephrase it? For example: 'papers on machine learning from 2020' or 'recent quantum computing research'",
                         'action': 'error',
@@ -108,16 +118,18 @@ class ResearchAgent:
             else:
                 # Regular conversation
                 try:
+                    logger.debug("Handling conversational query")
                     chat = self.get_or_create_chat(session_id)
                     response = chat.send_message(self._build_conversational_prompt(user_message))
 
+                    logger.debug("Conversational response generated successfully")
                     return {
                         'agent_response': response.text,
                         'action': 'conversation',
                         'data': {}
                     }
                 except Exception as conv_error:
-                    print(f"Conversation error: {conv_error}")
+                    logger.warning(f"Conversation error, using fallback response: {conv_error}")
                     # Graceful fallback: guide user to search instead
                     return {
                         'agent_response': "I'm currently focused on helping you search for academic papers. What research topic would you like to explore? For example, try asking 'Find papers on machine learning' or 'Recent research on climate change'.",
@@ -126,9 +138,7 @@ class ResearchAgent:
                     }
 
         except Exception as e:
-            print(f"Agent error: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.error(f"Critical error in chat handler: {e}", exc_info=True)
             return {
                 'agent_response': "I encountered an error. Could you rephrase your request?",
                 'action': 'error',
@@ -234,8 +244,10 @@ Answer with ONLY: SEARCH or CONVERSATION"""
         """
         current_year = datetime.now().year
 
-        # FEW-SHOT PROMPT with concrete examples
-        prompt = f"""Extract search parameters from the query. Output ONLY valid JSON, no other text.
+        # FEW-SHOT PROMPT with concrete examples - Enhanced for better extraction
+        prompt = f"""You are extracting search parameters for an academic paper search engine. Extract ONLY the core research topic, ignoring conversational fluff.
+
+Output ONLY valid JSON, no other text.
 
 EXAMPLES:
 
@@ -245,8 +257,11 @@ Output: {{"phrases": ["machine learning"], "keywords": [], "filters": {{"year_mi
 Input: "Haitian Revolution impact"
 Output: {{"phrases": ["Haitian Revolution"], "keywords": ["impact"], "filters": {{}}, "intent": "general search"}}
 
+Input: "I'm writing a research paper on climate change"
+Output: {{"phrases": ["climate change"], "keywords": [], "filters": {{}}, "intent": "general search"}}
+
 Input: "recent quantum computing research"
-Output: {{"phrases": ["quantum computing"], "keywords": ["research"], "filters": {{"year_min": {current_year - 3}, "year_max": {current_year}}}, "intent": "recent research"}}
+Output: {{"phrases": ["quantum computing"], "keywords": [], "filters": {{"year_min": {current_year - 3}, "year_max": {current_year}}}, "intent": "recent research"}}
 
 Input: "AI ethics papers from {current_year - 5} to {current_year - 1}"
 Output: {{"phrases": ["AI ethics"], "keywords": [], "filters": {{"year_min": {current_year - 5}, "year_max": {current_year - 1}}}, "intent": "specific time range"}}
@@ -254,31 +269,38 @@ Output: {{"phrases": ["AI ethics"], "keywords": [], "filters": {{"year_min": {cu
 Input: "neural networks in healthcare"
 Output: {{"phrases": ["neural networks"], "keywords": ["healthcare"], "filters": {{}}, "intent": "general search"}}
 
+Input: "I need sources for my thesis on artificial intelligence"
+Output: {{"phrases": ["artificial intelligence"], "keywords": [], "filters": {{}}, "intent": "general search"}}
+
+Input: "machine learning papers from 2020 to 2023"
+Output: {{"phrases": ["machine learning"], "keywords": [], "filters": {{"year_min": 2020, "year_max": 2023}}, "intent": "specific time range"}}
+
 RULES:
-- Multi-word technical terms go in "phrases" (e.g., "machine learning", "Haitian Revolution")
-- Single words go in "keywords"
-- "past X years" means year_min = {current_year} - X, year_max = {current_year}
-- "recent" means year_min = {current_year - 3}, year_max = {current_year}
-- Current year is {current_year}
+1. Extract ONLY the research topic, ignore words like: "I'm writing", "I need", "find me", "papers on", "research on", "sources for"
+2. Multi-word technical/academic terms MUST go in "phrases" (e.g., "machine learning", "climate change", "Haitian Revolution", "quantum computing")
+3. Only use "keywords" for single descriptive words that modify the topic (e.g., "impact", "applications", "methods")
+4. Prioritize extracting 1-3 core phrases over many keywords
+5. Time filters:
+   - "past X years" → year_min = {current_year} - X, year_max = {current_year}
+   - "recent" → year_min = {current_year - 3}, year_max = {current_year}
+   - Explicit years → use those exact years
+6. Current year is {current_year}
 
 Now parse this query:
 Input: "{user_message}"
 Output:"""
 
         try:
+            logger.debug("Calling Gemini API for query parameter extraction...")
             response = self.model.generate_content(prompt)
             raw_text = response.text.strip()
 
-            print(f"Raw Gemini response:\n{raw_text}\n")
+            logger.debug(f"Raw Gemini response: {raw_text[:200]}...")
 
             # Try to parse JSON
             parsed = self._parse_json_response(raw_text)
 
             if parsed:
-                # CRITICAL: Always create all_terms
-                parsed['all_terms'] = parsed.get('phrases', []) + parsed.get('keywords', [])
-                parsed['original_query'] = user_message
-
                 # Ensure required fields exist
                 if 'phrases' not in parsed:
                     parsed['phrases'] = []
@@ -289,14 +311,22 @@ Output:"""
                 if 'intent' not in parsed:
                     parsed['intent'] = 'general search'
 
+                # Post-process: Clean and prioritize terms
+                parsed = self._clean_extracted_terms(parsed)
+
+                # CRITICAL: Always create all_terms after cleaning
+                parsed['all_terms'] = parsed.get('phrases', []) + parsed.get('keywords', [])
+                parsed['original_query'] = user_message
+
+                logger.debug(f"Gemini extraction successful: {parsed}")
                 return parsed
             else:
                 # JSON parsing failed, try regex fallback
-                print("JSON parsing failed, trying fallback extraction")
+                logger.warning("Gemini JSON parsing failed, using regex fallback")
                 return self._fallback_query_extraction(user_message)
 
         except Exception as e:
-            print(f"Query extraction error: {e}")
+            logger.warning(f"Gemini query extraction error: {e}, using fallback")
             return self._fallback_query_extraction(user_message)
 
     def _parse_json_response(self, text: str) -> dict:
@@ -368,17 +398,57 @@ Output:"""
             filters['year_min'] = year
             filters['year_max'] = year
 
-        # Extract keywords (simple: split by spaces, remove common words)
+        # Extract keywords (enhanced: split by spaces, remove common words, prioritize domain terms)
         stop_words = {'the', 'a', 'an', 'in', 'on', 'at', 'from', 'to', 'for', 'of', 'with',
                       'papers', 'paper', 'research', 'find', 'search', 'about', 'recent',
                       'past', 'years', 'year', 'writing', "i'm", "i'll", "i've", "i'd",
                       'need', 'needs', 'sources', 'source', 'thesis', 'theses', 'dissertation',
                       'writing', 'write', 'working', 'work', 'doing', 'do', 'making', 'make',
                       'creating', 'create', 'looking', 'look', 'seeking', 'seek', 'want',
-                      'wants', 'wanted', 'trying', 'try', 'going', 'goes', 'go'}
+                      'wants', 'wanted', 'trying', 'try', 'going', 'goes', 'go',
+                      'would', 'could', 'should', 'might', 'will', 'can', 'may',
+                      'some', 'many', 'much', 'good', 'best', 'better', 'worst', 'great',
+                      'new', 'old', 'first', 'last', 'next', 'previous', 'current',
+                      'how', 'what', 'why', 'when', 'where', 'which', 'who',
+                      'this', 'that', 'these', 'those', 'there', 'here', 'very',
+                      'just', 'only', 'also', 'even', 'still', 'already', 'yet'}
 
         words = user_message.lower().split()
+        # Filter out stop words and very short words
         keywords = [word for word in words if word not in stop_words and len(word) > 2]
+
+        # Prioritize technical/academic domain terms
+        domain_terms = {'machine', 'learning', 'artificial', 'intelligence', 'neural', 'network',
+                       'deep', 'quantum', 'computing', 'algorithm', 'data', 'science', 'computer',
+                       'vision', 'nlp', 'natural', 'language', 'processing', 'reinforcement',
+                       'supervised', 'unsupervised', 'classification', 'regression', 'clustering',
+                       'optimization', 'statistics', 'probability', 'bayesian', 'graph',
+                       'distributed', 'parallel', 'convolutional', 'recurrent', 'transformer',
+                       'attention', 'generative', 'adversarial', 'autoencoder', 'embedding',
+                       'tokenization', 'sentiment', 'analysis', 'prediction', 'forecasting',
+                       'healthcare', 'medical', 'clinical', 'diagnosis', 'treatment', 'therapy',
+                       'biomedical', 'genomics', 'protein', 'drug', 'pharmaceutical', 'clinical',
+                       'patient', 'disease', 'cancer', 'cardiovascular', 'neural', 'neurological',
+                       'psychology', 'cognitive', 'behavioral', 'social', 'economic', 'finance',
+                       'market', 'trading', 'portfolio', 'risk', 'optimization', 'derivative',
+                       'cryptocurrency', 'blockchain', 'distributed', 'ledger', 'consensus',
+                       'smart', 'contract', 'decentralized', 'token', 'mining', 'proof',
+                       'climate', 'change', 'environment', 'sustainable', 'renewable', 'energy',
+                       'carbon', 'emission', 'greenhouse', 'global', 'warming', 'pollution',
+                       'conservation', 'ecosystem', 'biodiversity', 'species', 'habitat',
+                       'quantum', 'physics', 'particle', 'relativity', 'cosmology', 'black',
+                       'hole', 'string', 'theory', 'nuclear', 'fusion', 'fission', 'plasma'}
+
+        # Boost domain terms to front of list
+        domain_keywords = [word for word in keywords if word in domain_terms]
+        other_keywords = [word for word in keywords if word not in domain_terms]
+        keywords = domain_keywords + other_keywords
+
+        # Limit to most relevant keywords (top 5-8)
+        keywords = keywords[:8]
+
+        # Debug: uncomment to see extracted keywords
+        # print(f"DEBUG: Extracted keywords: {keywords}")
 
         # Try to detect phrases (capitalized consecutive words)
         phrases = []
@@ -396,7 +466,32 @@ Output:"""
             'original_query': user_message
         }
 
-        print(f"Fallback extraction result: {parsed}")
+        logger.info(f"Fallback extraction result: phrases={phrases}, keywords={keywords[:5]}")
+        return parsed
+
+    def _clean_extracted_terms(self, parsed: dict) -> dict:
+        """
+        Post-process Gemini extraction to filter noise and prioritize domain terms
+        """
+        # Stop words to remove from keywords
+        stop_words = {'paper', 'papers', 'research', 'study', 'studies', 'article', 'articles',
+                     'find', 'search', 'looking', 'need', 'want', 'about', 'related',
+                     'writing', 'work', 'working', 'thesis', 'dissertation', 'source', 'sources'}
+
+        # Filter keywords
+        keywords = parsed.get('keywords', [])
+        keywords = [k for k in keywords if k.lower() not in stop_words and len(k) > 2]
+
+        # Limit keywords to top 5
+        keywords = keywords[:5]
+
+        parsed['keywords'] = keywords
+
+        # Phrases are usually good, but limit to top 3
+        phrases = parsed.get('phrases', [])
+        phrases = phrases[:3]
+        parsed['phrases'] = phrases
+
         return parsed
 
     def _validate_query(self, parsed_query: dict, original_message: str) -> dict:

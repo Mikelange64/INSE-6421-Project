@@ -1,6 +1,10 @@
 # search/services/ranking_service.py
 from typing import List, Dict
 import re
+from .logging_config import get_logger
+
+# Initialize logger
+logger = get_logger(__name__)
 
 
 class RelevanceRanker:
@@ -71,45 +75,73 @@ class RelevanceRanker:
         abstract = str(abstract).lower()
         combined_text = f"{title} {abstract}"
 
-        # 1. Title keyword matches (most important) - up to 30 points
-        title_matches = sum(1 for term in important_terms if term.lower() in title)
-        score += min(title_matches * 10, 30)
+        # Get phrases from parsed_query (Gemini already extracted them)
+        query_phrases = parsed_query.get('phrases', [])
+        query_keywords = parsed_query.get('keywords', [])
+
+        # Break phrases into individual words for flexible matching
+        all_search_terms = set()
+        for phrase in query_phrases:
+            # Add the phrase itself
+            all_search_terms.add(phrase.lower())
+            # Add individual words from phrase
+            all_search_terms.update(phrase.lower().split())
+        # Add keywords
+        all_search_terms.update(k.lower() for k in query_keywords)
+
+        # 1. Title matching (most important) - up to 50 points
+        title_score = 0
+        # Exact phrase match in title (highest value)
+        exact_phrase_in_title = sum(1 for phrase in query_phrases if phrase.lower() in title)
+        title_score += exact_phrase_in_title * 20  # 20 points per exact phrase match
+        
+        # Individual term matches in title
+        title_term_matches = sum(1 for term in all_search_terms if term in title and len(term) > 2)
+        title_score += title_term_matches * 5  # 5 points per term match
+        
+        score += min(title_score, 50)
+        max_score += 50
+
+        # 2. Abstract matching - up to 30 points
+        abstract_score = 0
+        # Exact phrase match in abstract
+        exact_phrase_in_abstract = sum(1 for phrase in query_phrases if phrase.lower() in abstract)
+        abstract_score += exact_phrase_in_abstract * 10  # 10 points per exact phrase match
+        
+        # Individual term matches in abstract
+        abstract_term_matches = sum(1 for term in all_search_terms if term in abstract and len(term) > 2)
+        abstract_score += abstract_term_matches * 2  # 2 points per term match
+        
+        score += min(abstract_score, 30)
         max_score += 30
 
-        # 2. Abstract keyword matches - up to 25 points
-        abstract_matches = sum(1 for term in important_terms if term.lower() in abstract)
-        score += min(abstract_matches * 5, 25)
-        max_score += 25
-
-        # 3. Exact phrase matching - up to 20 points
-        query_phrases = self._extract_phrases(original_query)
-        phrase_matches = sum(1 for phrase in query_phrases if phrase in combined_text)
-        score += min(phrase_matches * 10, 20)
-        max_score += 20
-
-        # 4. Year relevance - up to 15 points
+        # 3. Year relevance - up to 10 points
         year_score = self._score_year_relevance(paper, parsed_query)
         score += year_score
-        max_score += 15
+        max_score += 10
 
-        # 5. Source bonus - up to 10 points
+        # 4. Source quality bonus - up to 10 points
         source_score = self._score_source_quality(paper)
         score += source_score
         max_score += 10
 
-        # Convert to 1-5 scale
+        # Convert to 1-5 scale (max_score = 100)
         if max_score == 0:
             return 3  # Default middle score
 
         percentage = (score / max_score) * 100
 
-        if percentage >= 80:
+        # Debug logging for detailed scoring analysis
+        logger.debug(f"Paper: '{title[:60]}...' | Score: {score}/{max_score} ({percentage:.1f}%) | Phrases: {query_phrases} | Stars: {5 if percentage >= 70 else 4 if percentage >= 50 else 3 if percentage >= 30 else 2 if percentage >= 15 else 1}")
+
+        # Adjusted thresholds for better differentiation
+        if percentage >= 70:
             return 5  # Highly relevant
-        elif percentage >= 60:
+        elif percentage >= 50:
             return 4  # Very relevant
-        elif percentage >= 40:
+        elif percentage >= 30:
             return 3  # Moderately relevant
-        elif percentage >= 20:
+        elif percentage >= 15:
             return 2  # Somewhat relevant
         else:
             return 1  # Low relevance
@@ -147,9 +179,9 @@ class RelevanceRanker:
         # If year filter specified
         if year_min and year_max:
             if year_min <= paper_year <= year_max:
-                return 15
+                return 10  # Full points for matching filter
             else:
-                return 0
+                return 0  # Zero for outside range
 
         # If "recent" intent, prefer newer papers
         if 'recent' in intent_str.lower() or 'developments' in intent_str.lower():
@@ -157,22 +189,24 @@ class RelevanceRanker:
             age = current_year - paper_year
 
             if age <= 1:
-                return 15
+                return 10
             elif age <= 2:
-                return 12
-            elif age <= 3:
                 return 8
+            elif age <= 3:
+                return 6
             elif age <= 5:
-                return 5
+                return 4
             else:
                 return 2
 
-        # Default: papers from last 5 years get slight bonus
+        # Default: papers from last 3-5 years get slight bonus
         current_year = datetime.now().year
-        if current_year - paper_year <= 5:
-            return 10
-        else:
+        if current_year - paper_year <= 3:
+            return 7
+        elif current_year - paper_year <= 5:
             return 5
+        else:
+            return 3
 
     def _score_source_quality(self, paper: Dict) -> int:
         """Small bonus for certain sources"""

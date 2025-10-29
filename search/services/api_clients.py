@@ -3,6 +3,10 @@ import requests
 import xml.etree.ElementTree as ET
 from typing import List, Dict
 import time
+from .logging_config import get_logger
+
+# Initialize logger
+logger = get_logger(__name__)
 
 
 class ArxivClient:
@@ -50,7 +54,8 @@ class ArxivClient:
                 'sortOrder': 'descending'
             }
 
-            print(f"🔍 ArXiv query: {search_query}")  # Debug
+            logger.debug(f"ArXiv query: {search_query}")
+            logger.debug(f"ArXiv params: max_results={params['max_results']}, sortBy={params['sortBy']}")
 
             # Make API request
             response = requests.get(self.base_url, params=params, timeout=10)
@@ -59,13 +64,14 @@ class ArxivClient:
             # Parse XML response
             papers = self._parse_arxiv_response(response.text, filters)
 
+            logger.info(f"ArXiv returned {len(papers)} papers")
             return papers
 
         except requests.RequestException as e:
-            print(f"ArXiv API error: {e}")
+            logger.error(f"ArXiv API error: {e}")
             return []
         except Exception as e:
-            print(f"Unexpected error in ArXiv client: {e}")
+            logger.error(f"Unexpected error in ArXiv client: {e}", exc_info=True)
             return []
 
     def _build_search_query(self, parsed_query: dict) -> str:
@@ -214,21 +220,25 @@ class PubMedClient:
             if not search_term:
                 return []
 
-            print(f"🔍 PubMed query: {search_term}")  # Debug
+            logger.debug(f"PubMed query: {search_term}")
 
             # Step 1: Search for PMIDs
             pmids = self._search_pubmed(search_term)
 
             if not pmids:
+                logger.debug("PubMed returned no PMIDs")
                 return []
+
+            logger.debug(f"PubMed found {len(pmids)} PMIDs, fetching details...")
 
             # Step 2: Fetch paper details
             papers = self._fetch_paper_details(pmids)
 
+            logger.info(f"PubMed returned {len(papers)} papers")
             return papers
 
         except Exception as e:
-            print(f"PubMed API error: {e}")
+            logger.error(f"PubMed API error: {e}", exc_info=True)
             return []
 
     def _build_search_query(self, parsed_query: dict) -> str:
