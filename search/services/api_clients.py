@@ -57,7 +57,7 @@ class ArxivClient:
             response.raise_for_status()
 
             # Parse XML response
-            papers = self._parse_arxiv_response(response.text, year)
+            papers = self._parse_arxiv_response(response.text, filters)
 
             return papers
 
@@ -70,78 +70,60 @@ class ArxivClient:
 
     def _build_search_query(self, parsed_query: dict) -> str:
         """
-        Build intelligent search query using intent, entities, and keywords
+        Build search query using phrases and keywords
         """
-        # Get all available data
-        keywords = parsed_query.get('keywords', [])
-        entities = parsed_query.get('entities', [])
-        intent = parsed_query.get('intent', {})
-        primary_intent = intent.get('primary_intent', 'find specific papers')
+        all_terms = parsed_query.get('all_terms', [])
 
+        if not all_terms:
+            # Fallback to keywords
+            all_terms = parsed_query.get('keywords', [])
+
+        if not all_terms:
+            return ''
+
+        # Build query - phrases are already in all_terms
         search_terms = []
+        for term in all_terms:
+            # If term has spaces, it's a phrase - quote it
+            if ' ' in term:
+                search_terms.append(f'"{term}"')
+            else:
+                search_terms.append(term)
 
-        # 1. Add entities (these are often the most important concepts)
-        for entity in entities:
-            entity_text = entity.get('word', '')
-            if entity_text and len(entity_text) > 2:
-                search_terms.append(entity_text)
-
-        # 2. Add keywords that aren't already in entities
-        entity_words = [e.get('word', '').lower() for e in entities]
-        for keyword in keywords:
-            if keyword.lower() not in entity_words:
-                search_terms.append(keyword)
-
-        # 3. If we have nothing, fall back to original query
-        if not search_terms:
-            original = parsed_query.get('original_query', '')
-            if original:
-                search_terms = original.split()
-
-        # Build query based on intent
-        if primary_intent == 'literature review':
-            # For reviews, search in abstract and title
-            query = f"abs:({' AND '.join(search_terms)})"
-        elif primary_intent == 'recent developments':
-            # Prioritize recent papers
-            query = f"all:({' AND '.join(search_terms)})"
-        else:
-            # Default: search all fields
-            query = f"all:({' AND '.join(search_terms)})"
-
-        return query
+        return 'all:(' + ' AND '.join(search_terms) + ')'
 
     def _adjust_max_results(self, parsed_query: dict) -> int:
         """Adjust number of results based on intent"""
-        intent = parsed_query.get('intent', {})
-        primary_intent = intent.get('primary_intent', '')
+        # intent is a string, not a dict
+        intent_str = str(parsed_query.get('intent', ''))
 
         # More results for reviews
-        if 'review' in primary_intent or 'survey' in primary_intent or 'comprehensive' in primary_intent:
+        if 'review' in intent_str or 'survey' in intent_str or 'comprehensive' in intent_str:
             return 20
         # Fewer results for specific searches
-        elif 'specific' in primary_intent:
+        elif 'specific' in intent_str:
             return 5
         # Default
         return self.max_results
 
     def _determine_sort_order(self, parsed_query: dict) -> str:
         """Determine sort order based on intent"""
-        intent = parsed_query.get('intent', {})
-        primary_intent = intent.get('primary_intent', '')
+        # intent is a string, not a dict
+        intent_str = str(parsed_query.get('intent', ''))
 
         # Recent papers sort by date
-        if 'recent' in primary_intent or 'developments' in primary_intent:
+        if 'recent' in intent_str or 'developments' in intent_str:
             return 'submittedDate'
         # Highly cited would need custom handling (arXiv doesn't support citation sorting)
-        elif 'cited' in primary_intent:
+        elif 'cited' in intent_str:
             return 'relevance'  # Best we can do
         # Default to relevance
         return 'relevance'
 
-    def _parse_arxiv_response(self, xml_content: str, year_filter: int = None) -> List[Dict]:
+    def _parse_arxiv_response(self, xml_content: str, filters: dict = None) -> List[Dict]:
         """Parse arXiv XML response into structured paper data"""
         papers = []
+        filters = filters or {}
 
         try:
             # Parse XML with namespace handling
@@ -170,18 +152,27 @@ class ArxivClient:
                 if published is not None and published.text:
                     pub_year = int(published.text[:4])
 
-                # Apply year filter if specified
-                if year_filter and pub_year and pub_year != year_filter:
+                # Apply year filters if specified
+                year_min = filters.get('year_min')
+                year_max = filters.get('year_max')
+                single_year = filters.get('year')
+
+                # Check year constraints
+                if single_year and pub_year and pub_year != single_year:
+                    continue
+                elif year_min and pub_year and pub_year < year_min:
+                    continue
+                elif year_max and pub_year and pub_year > year_max:
                     continue
 
                 # Build paper object
                 paper = {
-                    'title': title.text.strip() if title is not None else 'No title',
+                    'title': title.text.strip() if title is not None and title.text else 'No title',
                     'authors': ', '.join(author_names) if author_names else 'Unknown',
-                    'abstract': summary.text.strip() if summary is not None else 'No abstract available',
+                    'abstract': summary.text.strip() if summary is not None and summary.text else 'No abstract available',
                     'source': 'arxiv',
                     'year': pub_year,
-                    'link': link.text if link is not None else '#'
+                    'link': link.text.strip() if link is not None and link.text else '#'
                 }
 
                 papers.append(paper)
@@ -242,57 +233,38 @@ class PubMedClient:
 
     def _build_search_query(self, parsed_query: dict) -> str:
         """
-        Build intelligent PubMed search query using intent, entities, and keywords
+        Build PubMed search query
         """
-        keywords = parsed_query.get('keywords', [])
-        entities = parsed_query.get('entities', [])
-        intent = parsed_query.get('intent', {})
+        all_terms = parsed_query.get('all_terms', [])
         filters = parsed_query.get('filters', {})
-        year = filters.get('year')
-        primary_intent = intent.get('primary_intent', 'find specific papers')
 
+        if not all_terms:
+            return ''
+
+        # Build base query
         search_terms = []
+        for term in all_terms:
+            if ' ' in term:
+                search_terms.append(f'"{term}"')
+            else:
+                search_terms.append(term)
 
-        # Add entities first (usually most important)
-        for entity in entities:
-            entity_text = entity.get('word', '')
-            entity_type = entity.get('entity_group', '')
-
-            if entity_text and len(entity_text) > 2:
-                # For organizations, add to search
-                if entity_type == 'ORG':
-                    search_terms.append(f'({entity_text}[Affiliation])')
-                # For people (potential authors)
-                elif entity_type == 'PER':
-                    search_terms.append(f'({entity_text}[Author])')
-                # For topics/methods
-                else:
-                    search_terms.append(entity_text)
-
-        # Add keywords not already covered by entities
-        entity_words = [e.get('word', '').lower() for e in entities]
-        for keyword in keywords:
-            if keyword.lower() not in entity_words:
-                search_terms.append(keyword)
-
-        # Fallback to original query
-        if not search_terms:
-            original = parsed_query.get('original_query', '')
-            if original:
-                search_terms = original.split()
-
-        # Combine search terms
         query = ' AND '.join(search_terms)
 
-        # Add intent-specific filters
-        if 'review' in primary_intent:
-            query += ' AND (Review[Publication Type] OR systematic[Title/Abstract])'
-        elif 'empirical' in primary_intent:
-            query += ' AND (Clinical Trial[Publication Type] OR randomized[Title/Abstract])'
+        # Add year filters
+        year = filters.get('year')
+        year_min = filters.get('year_min')
+        year_max = filters.get('year_max')
 
-        # Add year filter
-        if year:
+        # Prioritize ranges over single years when both are present
+        if year_min and year_max:
+            query += f' AND {year_min}:{year_max}[pdat]'
+        elif year:
             query += f' AND {year}[pdat]'
+        elif year_min:
+            query += f' AND {year_min}:3000[pdat]'
+        elif year_max:
+            query += f' AND 1900:{year_max}[pdat]'
 
         return query
 
@@ -376,10 +348,10 @@ class PubMedClient:
                 for author in author_list[:5]:
                     lastname = author.find('LastName')
                     forename = author.find('ForeName')
-                    if lastname is not None:
-                        name = lastname.text
-                        if forename is not None:
-                            name = f"{forename.text} {name}"
+                    if lastname is not None and lastname.text:
+                        name = lastname.text.strip()
+                        if forename is not None and forename.text:
+                            name = f"{forename.text.strip()} {name}"
                         authors.append(name)
 
                 author_str = ', '.join(authors) if authors else 'Unknown'
@@ -388,11 +360,18 @@ class PubMedClient:
 
                 # Extract publication year
                 pub_date = article.find('.//PubDate/Year')
-                year = int(pub_date.text) if pub_date is not None else None
+                year = None
+                if pub_date is not None and pub_date.text:
+                    try:
+                        year = int(pub_date.text.strip())
+                    except ValueError:
+                        year = None
 
                 # Extract PMID for link
                 pmid_elem = article.find('.//PMID')
-                pmid = pmid_elem.text if pmid_elem is not None else None
+                pmid = None
+                if pmid_elem is not None and pmid_elem.text:
+                    pmid = pmid_elem.text.strip()
                 link = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/" if pmid else '#'
 
                 paper = {

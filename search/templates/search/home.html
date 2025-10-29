@@ -3,207 +3,1004 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The Online Archive</title>
-    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <title>Mayele - Research Assistant</title>
+    {% load static %}
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        *{
+            margin:0;
+            padding:0;
+            box-sizing:
+            border-box
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #4f73b0 0%, #104db5 100%);
-            min-height: 100vh;
-            padding: 20px;
+            font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
+            height:100vh;
+            overflow:hidden;
+            background:#f7f7f8
         }
 
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
+        .app-container {
+            display:flex;
+            height:100vh
         }
 
-        .header {
-            text-align: center;
-            color: white;
-            margin-bottom: 40px;
-            padding: 40px 20px;
+        /* Left Sidebar - Collapsible */
+        .sidebar {
+            width:70px;
+            background:#1a1a1a;
+            border-right:1px solid #2a2a2a;
+            display:flex;
+            flex-direction:column;
+            transition:width .28s ease, box-shadow .2s;position:relative;z-index:100
         }
 
-        .header h1 {
-            font-size: 2.5rem;
-            font-weight: 700;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        .sidebar.expanded {
+            width:280px;
+            box-shadow:0 6px 20px rgba(0,0,0,.08)
         }
 
-        .header p {
-            font-size: 1.1rem;
-            opacity: 0.95;
+        .sidebar-header {
+            padding:20px 0;
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            gap:15px;
+            border-bottom:1px solid #2a2a2a
         }
 
-        .search-section {
-            background: white;
-            border-radius: 20px;
-            padding: 30px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            margin-bottom: 30px;
+        .sidebar-logo {
+            width:40px;
+            height:40px;
+            display:flex;align-items:center;
+            justify-content:center
         }
 
-        .search-box {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
+        .sidebar-logo img {
+            width:100
+            %;
+            height:100%;
+            object-fit:contain
+        }
+        .sidebar-logo .logo-fallback {
+            font-size:24px
         }
 
-        input[type="text"] {
-            flex: 1;
-            padding: 15px 20px;
-            font-size: 1rem;
-            border: 2px solid #e0e0e0;
-            border-radius: 12px;
-            transition: all 0.3s ease;
-            outline: none;
+        .new-chat-btn {
+            width:40px;
+            height:40px;
+            border-radius:10px;
+            border:1px solid #3a3a3a;
+            background:transparent;
+            color:#fff;
+            cursor:pointer;
+            font-size:24px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            transition:all .2s
+        }
+        .new-chat-btn:hover {
+            background:#2a2a2a;
+            border-color:#4a4a4a
         }
 
-        input[type="text"]:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+        .sidebar-content {
+            flex:1;overflow:hidden;
+            display:flex;
+            flex-direction:column
+        }
+        .sidebar-nav {
+            flex:1;
+            overflow-y:auto;
+            padding:10px 0
         }
 
-        button {
-            padding: 15px 35px;
-            font-size: 1rem;
-            font-weight: 600;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        /* NAV ITEMS */
+        .nav-item {
+            display:flex;
+            align-items:center;
+            padding:12px 15px;
+            color:#9a9a9a;
+            cursor:pointer;
+            transition:all .12s;
+            white-space:nowrap;
+            border-radius:8px;
+            margin:4px 8px
+        }
+        .nav-item .nav-icon {
+            min-width:40px;
+            font-size:20px;
+            display:flex;
+            align-items:center;
+            justify-content:center
+        }
+        .nav-item .nav-label {
+            opacity:0;
+            margin-left:10px;
+            font-size:14px;
+            font-weight:500;
+            transition:opacity .18s ease
+        }
+        .nav-item:hover {
+            background:#2a2a2a;color:#fff
+        }
+        .nav-item.active {
+            background:#2a2a2a;color:#fff
         }
 
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        /* IMPORTANT: do NOT expand sidebar on .sidebar:hover — expansion is controlled by JS only */
+        /* Sections are hidden by default and shown when .nav-section.active is set by JS */
+        .nav-section {
+            display:none;
+            padding-left:50px;
+            max-height:0;
+            overflow:hidden;
+            transition:max-height .28s ease
+        }
+        .nav-section.active {
+            display:block;
+            max-height:420px;
+            overflow-y:auto
         }
 
-        button:active {
-            transform: translateY(0);
+        /* Titles + items inside sections */
+        .section-title {
+            font-size:11px;
+            text-transform:uppercase;
+            color:#6a6a6a;
+            padding:10px 15px 5px;
+            font-weight:600;
+            letter-spacing:.5px
+        }
+        .section-group {
+            margin-bottom:20px
+            }
+        .section-item {
+            padding:8px 15px;
+            color:#9a9a9a;
+            font-size:13px;
+            cursor:pointer;
+            border-radius:6px;
+            margin:2px 10px;
+            transition:all .12s;
+            overflow:hidden;
+            text-overflow:ellipsis;
+            white-space:nowrap
+        }
+        .section-item:hover {
+            background:#3a3a3a;
+            color:#fff
         }
 
-        .loading {
-            text-align: center;
-            color: #667eea;
-            font-weight: 500;
-            padding: 10px;
-            animation: pulse 1.5s ease-in-out infinite;
+        /* Scrollbar styling */
+        .sidebar-nav::-webkit-scrollbar,.nav-section::-webkit-scrollbar {
+            width:4px
+        }
+        .sidebar-nav::-webkit-scrollbar-track,.nav-section::-webkit-scrollbar-track {
+            background:transparent
+        }
+        .sidebar-nav::-webkit-scrollbar-thumb,.nav-section::-webkit-scrollbar-thumb {
+            background:#3a3a3a;
+            border-radius:2px
         }
 
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+        /* Main content */
+        .main-content {
+            flex:1;
+            display:flex;
+            flex-direction:column;
+            max-width:100%
         }
 
-        .search-tips {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 10px;
-            font-size: 0.9rem;
-            color: #666;
+        /* Top bar */
+        .top-bar {
+            height:60px;
+            background:#fff;
+            border-bottom:1px solid #e5e5e5;
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            padding:0 20px
+        }
+        .top-bar-left {
+            display:flex;align-items:center;gap:12px
+        }
+        .user-avatar {
+            width:36px;
+            height:36px;
+            border-radius:50%;
+            background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
+            color:white;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            font-weight:600;
+            font-size:16px
+        }
+        .conversation-title {
+            font-size:16px;
+            font-weight:600;
+            color:#333;
+            padding:6px 12px;
+            border-radius:6px;
+            cursor:default
+        }
+        .top-bar-right {
+            display:flex;
+            align-items:center;
+            gap:10px
+        }
+        .top-bar-btn {
+            width:36px;
+            height:36px;
+            border-radius:8px;
+            border:none;
+            background:transparent;
+            color:#666;
+            cursor:pointer;
+            font-size:18px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            transition:all .12s
         }
 
-        .search-tips strong {
-            color: #667eea;
+        /* Dropdown */
+        .dropdown-menu {
+            position:absolute;
+            top:50px;
+            right:20px;
+            background:white;
+            border:1px solid #e5e5e5;
+            border-radius:8px;
+            box-shadow:0 4px 12px rgba(0,0,0,.1);
+            min-width:200px;
+            display:none;
+            z-index:1000
+        }
+        .dropdown-menu.active {
+            display:block
+        }
+        .dropdown-item {
+            padding:12px 16px;
+            font-size:14px;
+            color:#333;
+            cursor:pointer;
+            transition:all .12s;
+            border-bottom:1px solid #f0f0f0
+        }
+        .dropdown-item:last-child {
+            border-bottom:none
+        }
+        .dropdown-item:hover {
+            background:#f7f7f8
+        }
+        .dropdown-item.danger {
+            color:#e53e3e
+        }
+        .dropdown-item.danger:hover {
+            background:#fff5f5
         }
 
-        #results {
-            min-height: 200px;
+        /* Chat area */
+        .chat-container {
+            flex:1;
+            display:flex;
+            flex-direction:column;
+            overflow:hidden
+        }
+        .chat-messages {
+            flex:1;
+            overflow-y:auto;
+            padding:40px 20px;
+            display:flex;
+            flex-direction:column;
+            gap:20px
+        }
+        .message {
+            display:flex;
+            gap:12px;
+            max-width:80%;
+            animation:fadeIn .3s ease-in
+        }
+        @keyframes fadeIn {
+            from{opacity:0;
+            transform:translateY(10px)}to{opacity:1;
+            transform:translateY(0)}
+        }
+        .message.user {
+            align-self:flex-end;
+            flex-direction:row-reverse
+        }
+        .message.agent {
+            align-self:flex-start
+        }
+        .message-avatar {
+            width:36px;
+            height:36px;
+            border-radius:50%;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            font-size:18px;
+            flex-shrink:0
+        }
+        .message.user .message-avatar {
+            background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
+            color:white
+        }
+        .message.agent .message-avatar {
+            background:#f0f0f0;
+            color:#333
+        }
+        .message-content {
+            background:white;
+            padding:12px 16px;
+            border-radius:18px;
+            box-shadow:0 1px 2px rgba(0,0,0,.05);
+            line-height:1.5
+        }
+        .message.user .message-content {
+            background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
+            color:white
+        }
+        .message.agent .message-content {
+            background:white;
+            color:#333;
+            border:1px solid #e5e5e5
         }
 
+        /* Paper cards inside messages */
+        .paper-card {
+            background:#fafafa;
+            border:1px solid #e5e5e5;
+            border-radius:12px;
+            padding:16px;
+            margin-top:8px
+        }
+        .paper-card-title {
+            font-weight:600;
+            font-size:1rem;
+            color:#1a1a1a;
+            margin-bottom:8px;
+            line-height:1.4
+        }
+        .paper-card-meta {
+            font-size:.85rem;
+            color:#666;
+            margin-bottom:8px
+        }
+        .paper-card-abstract {
+            font-size:.9rem;
+            color:#4a4a4a;
+            line-height:1.5;
+            margin-bottom:12px
+        }
+        .paper-card-button {
+            display:inline-block;
+            padding:8px 16px;
+            background:#5f6fc6;
+            color:white;
+            border:none;
+            border-radius:8px;
+            font-size:.9rem;
+            cursor:pointer;
+            text-decoration:none
+        }
+        .paper-card-button:hover {
+            background:#4d5fb5
+        }
+
+        /* Welcome */
         .welcome-message {
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
-            text-align: center;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align:center;
+            padding:60px 20px;
+            color:#666
         }
-
+        .welcome-logo {
+            width:100px;
+            height:100px;
+            margin:0 auto 20px;
+            display:flex;
+            align-items:center;
+            justify-content:center
+        }
+        .welcome-logo img {
+            width:100%;
+            height:100%;
+            object-fit:contain
+        }
         .welcome-message h2 {
-            color: #667eea;
-            margin-bottom: 15px;
-            font-size: 1.8rem;
+            font-size:1.8rem;
+            color:#333;
+            margin-bottom:10px
+        }
+        .welcome-suggestions {
+            display:flex;
+            flex-wrap:wrap;
+            gap:10px;
+            justify-content:center;
+            margin-top:30px
+        }
+        .suggestion-chip {
+            padding:12px 24px;
+            background:white;
+            border:1px solid #e5e5e5;
+            border-radius:20px;
+            cursor:pointer;
+            font-size:.9rem;
+            color:#666;
+            transition:all .12s
+        }
+        .suggestion-chip:hover {
+            background:#5f6fc6;
+            color:white;
+            border-color:#5f6fc6;
+            transform:translateY(-2px)
         }
 
-        .welcome-message p {
-            color: #666;
-            font-size: 1.1rem;
-            line-height: 1.6;
+        /* Input area - vertically center + button */
+        .chat-input-container {
+            padding:20px;
+            background:white;
+            border-top:1px solid #e5e5e5
+        }
+        .chat-input-wrapper {
+            max-width:900px;
+            margin:0 auto;
+            display:flex;
+            gap:10px;
+            align-items:center
+        }
+        .input-plus-button {
+            width:40px;
+            height:40px;
+            border-radius:50%;
+            border:1px solid #e5e5e5;
+            background:white;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            cursor:pointer;
+            font-size:24px;
+            color:#666;
+            transition:all .12s;
+            flex-shrink:0
+        }
+        .input-plus-button:hover {
+            background:#f0f0f0;border-color:#ccc
         }
 
-        @media (max-width: 768px) {
-            .header h1 {
-                font-size: 2rem;
-            }
-
-            .search-box {
-                flex-direction: column;
-            }
-
-            button {
-                width: 100%;
-            }
+        /* textarea */
+        #user-input {
+            flex:1;
+            padding:12px 16px;
+            border:1px solid #e5e5e5;
+            border-radius:24px;
+            font-size:.95rem;
+            outline:none;
+            transition:border-color .12s;
+            background:#fafafa;
+            resize:none;
+            min-height:44px;
+            max-height:200px;
+            font-family:inherit;
+            line-height:1.5
         }
+        #user-input:focus {
+            border-color:#5f6fc6;
+            background:white
+        }
+        #send-btn {
+            width:40px;
+            height:40px;
+            border-radius:50%;
+            border:none;
+            background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
+            color:white;
+            cursor:pointer;
+            font-size:18px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            transition:transform .12s;
+            flex-shrink:0
+        }
+        #send-btn:hover {
+            transform:scale(1.05)
+        }
+        #send-btn:active {
+            transform:scale(.95)
+        }
+
+        /* typing indicator */
+        .typing-indicator {
+            display:none;
+            padding:12px 16px;
+            background:white;
+            border:1px solid #e5e5e5;
+            border-radius:18px;
+            width:fit-content
+        }
+        .typing-indicator.active {
+            display:flex;
+            gap:4px
+        }
+        .typing-dot {
+            width:8px;
+            height:8px;
+            border-radius:50%;
+            background:#999;
+            animation:typing 1.4s infinite
+        }
+        .typing-dot:nth-child(2) {
+            animation-delay:.2s
+        }
+        .typing-dot:nth-child(3) {
+            animation-delay:.4s
+        }
+        @keyframes typing {
+            0%,60%,100%{transform:translateY(0);
+            opacity:.7}30%{transform:translateY(-10px);
+            opacity:1}
+        }
+
+        /* toast */
+        .toast {
+            position:fixed;
+            bottom:30px;
+            right:30px;
+            background:#333;
+            color:white;
+            padding:12px 20px;
+            border-radius:8px;
+            box-shadow:0 4px 12px rgba(0,0,0,.3);
+            z-index:10000;
+            animation:slideIn .3s ease-out;
+            display:none
+        }
+        .toast.active {
+            display:block
+        }
+        @keyframes slideIn {
+            from{transform:translateY(100px);
+            opacity:0}to{transform:translateY(0);
+            opacity:1}
+        }
+
+        /* main chat scrollbar */
+        .chat-messages::-webkit-scrollbar {
+            width:6px
+        }
+        .chat-messages::-webkit-scrollbar-track {
+            background:transparent
+        }
+        .chat-messages::-webkit-scrollbar-thumb {
+            background:#d0d0d0;
+            border-radius:3px
+        }
+        .chat-messages::-webkit-scrollbar-thumb:hover {
+            background:#b0b0b0
+        }
+
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🔬 The Online Archive</h1>
-            <p>Discover academic papers from arXiv, PubMed, and more</p>
-        </div>
-
-        <div class="search-section">
-            <form hx-get="/api/search/" hx-target="#results" hx-indicator="#loading">
-                {% csrf_token %}
-                <div class="search-box">
-                    <input type="text"
-                           name="q"
-                           placeholder="e.g., 'machine learning in healthcare 2023' or 'AI for pavement longevity'"
-                           required>
-                    <button type="submit">🔍 Search</button>
+    <div class="app-container">
+        <!-- Left Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    <img src="{% static 'images/mayele_logo.png' %}" alt="Mayele" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <div class="logo-fallback" style="display:none;">🔬</div>
                 </div>
-            </form>
-
-            <div id="loading" class="loading" style="display: none;">
-                🔄 Analyzing your query and searching databases...
+                <button class="new-chat-btn" onclick="startNewChat()" title="New conversation">+</button>
             </div>
 
-            <div class="search-tips">
-                <strong>💡 Tips:</strong> Include years (2023), specify domains (healthcare, AI),
-                or mention research types (peer-reviewed, field experiments)
+            <div class="sidebar-content">
+                <div class="sidebar-nav">
+                    <!-- Chats Section -->
+                    <div class="nav-item active" id="nav-chats">
+                        <span class="nav-icon">💬</span>
+                        <span class="nav-label">Chats</span>
+                    </div>
+                    <div class="nav-section" id="chats-section">
+                        <div class="section-group">
+                            <div class="section-title">This Month</div>
+                            <div class="section-item" onclick="loadConversation('conv1')">Machine Learning in Healthcare</div>
+                            <div class="section-item" onclick="loadConversation('conv2')">Quantum Computing Overview</div>
+                            <div class="section-item" onclick="loadConversation('conv3')">Climate Change Impact Studies</div>
+                        </div>
+                        <div class="section-group">
+                            <div class="section-title">Last Month</div>
+                            <div class="section-item" onclick="loadConversation('conv4')">Neural Networks Research</div>
+                            <div class="section-item" onclick="loadConversation('conv5')">AI Ethics Papers</div>
+                        </div>
+                        <div class="section-group">
+                            <div class="section-title">01/2025</div>
+                            <div class="section-item" onclick="loadConversation('conv6')">Blockchain Technology</div>
+                            <div class="section-item" onclick="loadConversation('conv7')">Renewable Energy Sources</div>
+                        </div>
+                    </div>
+
+                    <!-- History Section -->
+                    <div class="nav-item" id="nav-history">
+                        <span class="nav-icon">📜</span>
+                        <span class="nav-label">Paper History</span>
+                    </div>
+                    <div class="nav-section" id="history-section">
+                        <div class="section-group">
+                            <div class="section-title">This Month</div>
+                            <div class="section-item" onclick="openPaper('paper1')">Deep Learning for Medical Diagnosis</div>
+                            <div class="section-item" onclick="openPaper('paper2')">Quantum Supremacy Achieved</div>
+                            <div class="section-item" onclick="openPaper('paper3')">Climate Models and Predictions</div>
+                        </div>
+                        <div class="section-group">
+                            <div class="section-title">Last Month</div>
+                            <div class="section-item" onclick="openPaper('paper4')">Transformer Architecture Explained</div>
+                            <div class="section-item" onclick="openPaper('paper5')">Ethics in AI Development</div>
+                        </div>
+                        <div class="section-group">
+                            <div class="section-title">01/2025</div>
+                            <div class="section-item" onclick="openPaper('paper6')">Decentralized Finance Overview</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings at bottom -->
+                <div class="nav-item" style="border-top: 1px solid #2a2a2a;">
+                    <span class="nav-icon">⚙️</span>
+                    <span class="nav-label">Settings</span>
+                </div>
             </div>
         </div>
 
-        <div id="results">
-            <div class="welcome-message">
-                <h2>Ready to explore research?</h2>
-                <p>Enter your search query above to find relevant academic papers.<br>
-                Our AI will understand your intent and fetch the most relevant results.</p>
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Top Bar -->
+            <div class="top-bar">
+                <div class="top-bar-left">
+                    <div class="user-avatar">Z</div>
+                    <div class="conversation-title" id="conversation-title">New Conversation</div>
+                </div>
+                <div class="top-bar-right">
+                    <button class="top-bar-btn" onclick="shareConversation()" title="Share">🔗</button>
+                    <button class="top-bar-btn" onclick="toggleDropdown()" title="More options">⋮</button>
+                </div>
+            </div>
+
+            <!-- Dropdown Menu -->
+            <div class="dropdown-menu" id="dropdown-menu">
+                <div class="dropdown-item" onclick="exportPDF()">📄 Export as PDF</div>
+                <div class="dropdown-item" onclick="exportDOCX()">📝 Export as DOCX</div>
+                <div class="dropdown-item danger" onclick="deleteConversation()">🗑️ Delete Conversation</div>
+                <div class="dropdown-item" onclick="archiveConversation()">📦 Archive Conversation</div>
+            </div>
+
+            <!-- Chat Area -->
+            <div class="chat-container">
+                <div class="chat-messages" id="chat-messages">
+                    <!-- Welcome Message -->
+                    <div class="welcome-message">
+                        <div class="welcome-logo">
+                            <img src="{% static 'images/mayele_logo.png' %}" alt="Mayele" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                            <div class="logo-fallback" style="display:none;">🔬</div>
+                        </div>
+                        <h2>Welcome to Mayele</h2>
+                        <p>Your AI research assistant. Ask me to find academic papers!</p>
+                        <div class="welcome-suggestions">
+                            <div class="suggestion-chip" onclick="sendSuggestion('Papers on machine learning in healthcare')">
+                                Papers on machine learning in healthcare
+                            </div>
+                            <div class="suggestion-chip" onclick="sendSuggestion('Recent advances in quantum computing')">
+                                Recent advances in quantum computing
+                            </div>
+                            <div class="suggestion-chip" onclick="sendSuggestion('Haitian Revolution impact')">
+                                Haitian Revolution impact
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Input Area -->
+                {% csrf_token %}
+                <div class="chat-input-container">
+                    <div class="chat-input-wrapper">
+                        <div class="input-plus-button" title="Attach file">+</div>
+                        <textarea
+                            id="user-input"
+                            placeholder="Ask about research papers..."
+                            rows="1"
+                        ></textarea>
+                        <button id="send-btn" onclick="sendMessage()" title="Send">➤</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <script>
-        document.body.addEventListener('htmx:beforeRequest', function() {
-            document.getElementById('loading').style.display = 'block';
-        });
+    <!-- Toast Notification -->
+    <div class="toast" id="toast"></div>
 
-        document.body.addEventListener('htmx:afterRequest', function() {
-            document.getElementById('loading').style.display = 'none';
-        });
+    <script>
+        const chatMessages = document.getElementById('chat-messages');
+        const userInput = document.getElementById('user-input');
+        const sidebar = document.querySelector('.sidebar');
+        const chatsNav = document.getElementById('nav-chats');
+        const historyNav = document.getElementById('nav-history');
+        const chatsSection = document.getElementById('chats-section');
+        const historySection = document.getElementById('history-section');
+
+        let conversationStarted = false;
+
+        // backup: ensure history label text change to "Paper History"
+        const historyLabel = historyNav?.querySelector('.nav-label');
+        if(historyLabel) historyLabel.textContent = 'Paper History';
+
+        // -------------------- Sidebar hover logic --------------------
+        // Sidebar reveal logic — updated so lists stay open when hovered
+        // Click-to-toggle sidebar logic
+        let currentOpenSection = null;
+
+        function toggleSection(sectionToShow) {
+            if (currentOpenSection === sectionToShow) {
+                // same section → close it
+                sidebar.classList.remove('expanded');
+                sectionToShow.classList.remove('active');
+                currentOpenSection = null;
+                return;
+            }
+
+            // open new section
+            sidebar.classList.add('expanded');
+            chatsSection.classList.remove('active');
+            historySection.classList.remove('active');
+            sectionToShow.classList.add('active');
+            currentOpenSection = sectionToShow;
+        }
+
+        // Apply to both icons
+        chatsNav.addEventListener('click', () => toggleSection(chatsSection));
+        historyNav.addEventListener('click', () => toggleSection(historySection));
+
+
+
+        // -------------------- Messaging --------------------
+        // Auto-grow textarea
+        if (userInput) {
+            userInput.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 200) + 'px';
+            });
+
+            userInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        function scrollToBottom() {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function addUserMessage(text) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message user';
+            messageDiv.innerHTML = `
+                <div class="message-avatar">Z</div>
+                <div class="message-content">${escapeHtml(text)}</div>
+            `;
+            chatMessages.appendChild(messageDiv);
+            scrollToBottom();
+        }
+
+        function addAgentMessage(text) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message agent';
+            messageDiv.innerHTML = `
+                <div class="message-avatar">🤖</div>
+                <div class="message-content">${escapeHtml(text)}</div>
+            `;
+            chatMessages.appendChild(messageDiv);
+            scrollToBottom();
+        }
+
+        function addTypingIndicator() {
+            if (document.getElementById('typing-indicator')) return;
+            const indicator = document.createElement('div');
+            indicator.className = 'message agent';
+            indicator.id = 'typing-indicator';
+            indicator.innerHTML = `
+                <div class="message-avatar">🤖</div>
+                <div class="typing-indicator active">
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                </div>
+            `;
+            chatMessages.appendChild(indicator);
+            scrollToBottom();
+        }
+
+        function removeTypingIndicator() {
+            const indicator = document.getElementById('typing-indicator');
+            if (indicator) indicator.remove();
+        }
+
+        // If you want to display paper cards from an API payload, use this helper:
+        function displayPapers(papers) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message agent';
+            let papersHtml = '<div class="message-avatar">🤖</div><div class="message-content">';
+            papers.slice(0,5).forEach(paper => {
+                const stars = '⭐'.repeat(paper.relevance_score || 3);
+                papersHtml += `
+                    <div class="paper-card">
+                        <div class="paper-card-title">${escapeHtml(paper.title || '')}</div>
+                        <div class="paper-card-meta">
+                            <strong>Authors:</strong> ${escapeHtml(paper.authors || '')} |
+                            <strong>Source:</strong> ${(paper.source||'').toUpperCase()} |
+                            ${paper.year || 'N/A'} ${stars}
+                        </div>
+                        <div class="paper-card-abstract">${escapeHtml((paper.abstract||'').substring(0,200))}...</div>
+                        <a href="${paper.link || '#'}" target="_blank" class="paper-card-button">Read Paper</a>
+                    </div>
+                `;
+            });
+            if (papers.length > 5) {
+                papersHtml += `<p style="margin-top:12px;font-style:italic;color:#666">Showing 5 of ${papers.length} results</p>`;
+            }
+            papersHtml += '</div>';
+            messageDiv.innerHTML = papersHtml;
+            chatMessages.appendChild(messageDiv);
+            scrollToBottom();
+        }
+
+        // Core sendMessage function — fixes missing/broken logic so messages appear
+        async function sendMessage() {
+            const message = (userInput?.value || '').trim();
+            if (!message) {
+                addAgentMessage('Please enter a message before sending.');
+                return;
+            }
+
+            // Remove welcome block if present
+            const welcome = document.querySelector('.welcome-message');
+            if (welcome) welcome.remove();
+
+            // Set conversation title on first message
+            if (!conversationStarted) {
+                const title = message.length > 40 ? message.substring(0,40) + '...' : message;
+                const titleEl = document.getElementById('conversation-title');
+                if (titleEl) titleEl.textContent = title;
+                conversationStarted = true;
+            }
+
+            // Add user message to UI
+            addUserMessage(message);
+            // clear input
+            if (userInput) { userInput.value = ''; userInput.style.height = 'auto'; }
+
+            // typing indicator
+            addTypingIndicator();
+
+            try {
+                // Get CSRF token from Django template tag
+                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+
+                // Prepare form data for backend API
+                const formData = new FormData();
+                formData.append('message', message);
+                if (csrfToken) {
+                    formData.append('csrfmiddlewaretoken', csrfToken);
+                }
+
+                // Call backend API
+                const response = await fetch('/api/chat/', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                removeTypingIndicator();
+
+                // Handle different response types
+                if (data.error) {
+                    addAgentMessage(`Error: ${data.error}`);
+                } else if (data.action === 'search' && data.data && data.data.results) {
+                    // Search results with papers
+                    addAgentMessage(data.agent_response);
+                    displayPapers(data.data.results);
+                } else if (data.action === 'clarification') {
+                    // Query needs clarification
+                    addAgentMessage(data.agent_response);
+                    if (data.data && data.data.suggestions && data.data.suggestions.length > 0) {
+                        let suggestionsText = "\n\nSuggestions:\n";
+                        data.data.suggestions.forEach((suggestion, index) => {
+                            suggestionsText += `${index + 1}. ${suggestion}\n`;
+                        });
+                        addAgentMessage(suggestionsText);
+                    }
+                } else if (data.agent_response) {
+                    // Regular conversational response
+                    addAgentMessage(data.agent_response);
+                } else {
+                    addAgentMessage('I received your message but got an unexpected response.');
+                }
+
+            } catch (err) {
+                console.error('sendMessage error', err);
+                removeTypingIndicator();
+                addAgentMessage('Sorry, I encountered an error connecting to the server. Please check your connection and try again.');
+            }
+        }
+
+        // helper to wire suggestion chips if present (they call sendMessage with text auto-filled)
+        function sendSuggestion(text) {
+            if (userInput) {
+                userInput.value = text;
+                // optionally trigger input event to resize
+                userInput.dispatchEvent(new Event('input'));
+                sendMessage();
+            }
+        }
+
+        // New conversation function
+        function startNewChat() {
+            // Clear chat messages
+            chatMessages.innerHTML = '';
+            
+            // Reset conversation state
+            conversationStarted = false;
+            
+            // Reset title
+            const titleEl = document.getElementById('conversation-title');
+            if (titleEl) titleEl.textContent = 'New Conversation';
+            
+            // Add welcome message back
+            const welcomeHtml = `
+                <div class="welcome-message">
+                    <div class="welcome-logo">
+                        <img src="{% static 'images/mayele_logo.png' %}" alt="Mayele" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="logo-fallback" style="display:none;">🔬</div>
+                    </div>
+                    <h2>Welcome to Mayele</h2>
+                    <p>Your AI research assistant. Ask me to find academic papers!</p>
+                    <div class="welcome-suggestions">
+                        <div class="suggestion-chip" onclick="sendSuggestion('Papers on machine learning in healthcare')">
+                            Papers on machine learning in healthcare
+                        </div>
+                        <div class="suggestion-chip" onclick="sendSuggestion('Recent advances in quantum computing')">
+                            Recent advances in quantum computing
+                        </div>
+                        <div class="suggestion-chip" onclick="sendSuggestion('Haitian Revolution impact')">
+                            Haitian Revolution impact
+                        </div>
+                    </div>
+                </div>
+            `;
+            chatMessages.innerHTML = welcomeHtml;
+            
+            // Clear input
+            if (userInput) {
+                userInput.value = '';
+                userInput.style.height = 'auto';
+            }
+        }
+
+        // Make startNewChat globally available
+        window.startNewChat = startNewChat;
+
     </script>
-</body>
-</html>

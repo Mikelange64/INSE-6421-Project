@@ -48,3 +48,9 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+ai_paper_aggregator/Improvements.txt
+ai_paper_aggregator/product requirements.txt
+ai_paper_aggregator/summary.txt
+search/old tests.txt
+search/test.txt

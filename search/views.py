@@ -1,48 +1,96 @@
+# search/views.py
 from django.shortcuts import render
 from django.http import JsonResponse
-from .services.query_parser import query_processor
-from .services.api_clients import arxiv_client, pubmed_client
+from django.views.decorators.http import require_http_methods
+from .services.conversational_agent import research_agent
+import uuid
 
 
 def home(request):
-    return render(request, 'search/home.html')
+    """Home page with chat interface"""
+    # Generate session ID for this user
+    if 'session_id' not in request.session:
+        request.session['session_id'] = str(uuid.uuid4())
+
+    return render(request, 'search/home.html', {
+        'session_id': request.session['session_id']
+    })
 
 
-def search_api(request):
-    # Handle both GET and POST for flexibility
+@require_http_methods(["POST"])
+def chat_api(request):
+    """
+    Main chat endpoint - handles conversational messages
+    """
     try:
-        if request.method == 'GET':
-            query = request.GET.get('q', '').strip()
-        elif request.method == 'POST':
-            query = request.POST.get('q', '').strip()
-        else:
-            return JsonResponse({'error': 'Method not allowed'}, status=405)
+        # Get message and session
+        user_message = request.POST.get('message', '').strip()
+        session_id = request.session.get('session_id', 'default')
 
-        if not query:
-            return JsonResponse({'error': 'Query parameter is required'}, status=400)
+        if not user_message:
+            return JsonResponse({
+                'error': 'Message is required'
+            }, status=400)
 
-            # Use our NLP processor to understand the query
-        parsed_query = query_processor.parse_query(query)
+        # Process message through agent
+        response = research_agent.chat(user_message, session_id)
 
-        print(f"Original query: {query}")  # Debug
-        print(f"Parsed query: {parsed_query}")  # Debug
-
-        # Search both APIs
-        arxiv_results = arxiv_client.search(parsed_query)
-        pubmed_results = pubmed_client.search(parsed_query)
-
-        all_results = arxiv_results + pubmed_results
-
-        # Return results
-        if not all_results:
-            return render(request, 'search/no_results.html', {'query': query})
-
-        return render(request, 'search/results_partial.html', {
-            'results': all_results,
-            'query': query
+        # Return response
+        return JsonResponse({
+            'agent_response': response['agent_response'],
+            'action': response['action'],
+            'data': response.get('data', {})
         })
 
     except Exception as e:
-        # Log the error in production
-        print(f"Error processing search: {e}")
-        return JsonResponse({'error': 'An error occurred processing your request'}, status=500)
+        print(f"Chat API error: {e}")
+        return JsonResponse({
+            'error': 'An error occurred processing your message',
+            'details': str(e)
+        }, status=500)
+
+
+@require_http_methods(["POST"])
+def get_citations_api(request):
+    """
+    Get citations for specific papers
+    """
+    try:
+        session_id = request.session.get('session_id', 'default')
+        paper_indices = request.POST.getlist('indices[]')
+        style = request.POST.get('style', 'apa')
+
+        # Convert indices to integers
+        paper_indices = [int(i) for i in paper_indices]
+
+        # Get citations
+        citations = research_agent.get_citations(session_id, paper_indices, style)
+
+        return JsonResponse({
+            'citations': citations
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'error': str(e)
+        }, status=500)
+
+
+@require_http_methods(["POST"])
+def clear_conversation_api(request):
+    """
+    Clear conversation history
+    """
+    try:
+        session_id = request.session.get('session_id', 'default')
+        research_agent.clear_session(session_id)
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Conversation cleared'
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'error': str(e)
+        }, status=500)
