@@ -6,6 +6,18 @@ from .logging_config import get_logger
 # Initialize logger
 logger = get_logger(__name__)
 
+# Valid 2-letter academic acronyms/abbreviations (lowercase)
+VALID_SHORT_TERMS = {
+    # AI/CS/Tech
+    'ai', 'ml', 'dl', 'rl', 'nn', 'cv', 'nlp', 'it', 'ar', 'vr', 'ui', 'ux', 'os', 'db', 'ip',
+    # Science/Physics/Chemistry
+    'iq', 'eq', 'uv', 'ir', 'ph', 'em', 'gc', 'ms', 'nm', 'hz', 'mw', 'rf',
+    # Medicine/Biology
+    'ct', 'mr', 'bp', 'tb', 'hiv', 'dna', 'rna', 'icu', 'ed', 'or',
+    # Geography/Organizations
+    'us', 'uk', 'eu', 'un', 'who',
+}
+
 
 class RelevanceRanker:
     """
@@ -96,7 +108,7 @@ class RelevanceRanker:
         title_score += exact_phrase_in_title * 20  # 20 points per exact phrase match
         
         # Individual term matches in title
-        title_term_matches = sum(1 for term in all_search_terms if term in title and len(term) > 2)
+        title_term_matches = sum(1 for term in all_search_terms if term in title and (len(term) > 2 or term in VALID_SHORT_TERMS))
         title_score += title_term_matches * 5  # 5 points per term match
         
         score += min(title_score, 50)
@@ -109,7 +121,7 @@ class RelevanceRanker:
         abstract_score += exact_phrase_in_abstract * 10  # 10 points per exact phrase match
         
         # Individual term matches in abstract
-        abstract_term_matches = sum(1 for term in all_search_terms if term in abstract and len(term) > 2)
+        abstract_term_matches = sum(1 for term in all_search_terms if term in abstract and (len(term) > 2 or term in VALID_SHORT_TERMS))
         abstract_score += abstract_term_matches * 2  # 2 points per term match
         
         score += min(abstract_score, 30)

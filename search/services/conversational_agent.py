@@ -5,7 +5,7 @@ import re
 import google.generativeai as genai
 from datetime import datetime
 from dotenv import load_dotenv
-from .api_clients import arxiv_client, pubmed_client
+from .api_clients import arxiv_client, pubmed_client, semantic_scholar_client
 from .ranking_service import relevance_ranker
 from .citation_service import citation_formatter
 from .logging_config import get_logger
@@ -14,6 +14,18 @@ load_dotenv()
 
 # Initialize logger
 logger = get_logger(__name__)
+
+# Valid 2-letter academic acronyms/abbreviations (lowercase)
+VALID_SHORT_TERMS = {
+    # AI/CS/Tech
+    'ai', 'ml', 'dl', 'rl', 'nn', 'cv', 'nlp', 'it', 'ar', 'vr', 'ui', 'ux', 'os', 'db', 'ip', 
+    # Science/Physics/Chemistry
+    'iq', 'eq', 'uv', 'ir', 'ph', 'em', 'gc', 'ms', 'nm', 'hz', 'mw', 'rf',
+    # Medicine/Biology
+    'ct', 'mr', 'bp', 'tb', 'hiv', 'dna', 'rna', 'icu', 'ed', 'or',
+    # Geography/Organizations
+    'us', 'uk', 'eu', 'un', 'who',
+}
 
 
 class ResearchAgent:
@@ -161,16 +173,6 @@ class ResearchAgent:
         if any(keyword in message_lower for keyword in search_keywords):
             return True
 
-        # CLEAR CONVERSATIONAL INTENT - Direct conversation starters
-        conversational_phrases = [
-            'hello', 'hi', 'hey', 'greetings', 'thanks', 'thank you',
-            'what can you do', 'how are you', 'who are you', 'help',
-            'good morning', 'good afternoon', 'good evening',
-            'nice to meet you', 'how do you work', 'tell me about yourself'
-        ]
-        if any(phrase in message_lower for phrase in conversational_phrases):
-            return False
-
         # CONTEXTUAL SEARCH INTENT - Academic/research activities
         academic_activities = [
             'writing a research', 'working on a paper', 'doing research on',
@@ -201,6 +203,16 @@ class ResearchAgent:
         ]
         if any(indicator in message_lower for indicator in topic_indicators):
             return True
+
+        # CLEAR CONVERSATIONAL INTENT - Direct conversation starters (check after search intent)
+        conversational_phrases = [
+            'hello', 'hi', 'hey', 'greetings', 'thanks', 'thank you',
+            'what can you do', 'how are you', 'who are you', 'help',
+            'good morning', 'good afternoon', 'good evening',
+            'nice to meet you', 'how do you work', 'tell me about yourself'
+        ]
+        if any(phrase in message_lower for phrase in conversational_phrases):
+            return False
 
         # AMBIGUOUS CASES - Use Gemini for nuanced understanding
         try:
@@ -415,7 +427,7 @@ Output:"""
 
         words = user_message.lower().split()
         # Filter out stop words and very short words
-        keywords = [word for word in words if word not in stop_words and len(word) > 2]
+        keywords = [word for word in words if word not in stop_words and (len(word) > 2 or word in VALID_SHORT_TERMS)]
 
         # Prioritize technical/academic domain terms
         domain_terms = {'machine', 'learning', 'artificial', 'intelligence', 'neural', 'network',
@@ -480,7 +492,7 @@ Output:"""
 
         # Filter keywords
         keywords = parsed.get('keywords', [])
-        keywords = [k for k in keywords if k.lower() not in stop_words and len(k) > 2]
+        keywords = [k for k in keywords if k.lower() not in stop_words and (len(k) > 2 or k.lower() in VALID_SHORT_TERMS)]
 
         # Limit keywords to top 5
         keywords = keywords[:5]
@@ -553,7 +565,7 @@ Output:"""
         # Check for very short terms that might be typos
         if len(all_terms) == 1 and len(all_terms[0]) <= 2:
             term = all_terms[0]
-            if term.lower() not in ['ai', 'ml', 'cs', 'it', 'vr', 'ar', 'io', 'ui', 'ux', 'os']:
+            if term.lower() not in ['ai', 'ml', 'cs', 'it', 'vr', 'ar', 'io', 'ui', 'ux', 'os', 'iq']:
                 return {
                     'needs_clarification': True,
                     'reason': 'too_short',
@@ -591,11 +603,12 @@ User: {user_message}"""
         """
         print(f"Searching with query: {parsed_query}")
 
-        # Search both APIs
+        # Search all APIs
         arxiv_results = arxiv_client.search(parsed_query)
         pubmed_results = pubmed_client.search(parsed_query)
+        semantic_scholar_results = semantic_scholar_client.search(parsed_query)
 
-        all_results = arxiv_results + pubmed_results
+        all_results = arxiv_results + pubmed_results + semantic_scholar_results
 
         # Rank by relevance
         if all_results:
