@@ -415,6 +415,8 @@ class SemanticScholarClient:
         # Rate limiting: Semantic Scholar allows 100 requests per 5 minutes without API key
         self.request_delay = 0.1  # Conservative delay
         self.last_request_time = 0
+        self.last_rate_limited = False
+        self.last_query_terms: List[str] = []
 
     def search(self, parsed_query: dict) -> List[Dict]:
         """
@@ -428,15 +430,18 @@ class SemanticScholarClient:
         """
         try:
             # Build intelligent search query
-            search_query = self._build_search_query(parsed_query)
-
-            if not search_query:
+            query_terms = self._collect_query_terms(parsed_query)
+            if not query_terms:
+                logger.debug("Semantic Scholar: No search query built, returning empty results")
                 return []
 
-            logger.debug(f"Semantic Scholar query: {search_query}")
+            self.last_rate_limited = False
+            self.last_query_terms = query_terms.copy()
+
+            logger.info(f"Semantic Scholar: Searching for '{' '.join(query_terms)}'")
 
             # Make API request
-            papers = self._search_semantic_scholar(search_query, parsed_query)
+            papers = self._search_semantic_scholar(query_terms, parsed_query)
 
             logger.info(f"Semantic Scholar returned {len(papers)} papers")
             return papers
@@ -445,22 +450,67 @@ class SemanticScholarClient:
             logger.error(f"Semantic Scholar API error: {e}", exc_info=True)
             return []
 
+    def _collect_query_terms(self, parsed_query: dict, max_terms: int = None) -> List[str]:
+        phrases = parsed_query.get('phrases') or []
+        keywords = parsed_query.get('keywords') or []
+        semantic_terms = parsed_query.get('semantic_scholar_terms') or []
+        original_query = parsed_query.get('original_query', '')
+
+        MAX_QUERY_TERMS = max_terms or 12
+        MAX_KEYWORD_TERMS = min(8, MAX_QUERY_TERMS)
+
+        def add_term(term, collected, seen):
+            if not term:
+                return
+            normalized = str(term).strip()
+            if not normalized:
+                return
+            normalized = ' '.join(normalized.split())
+            clean_for_search = ' '.join(normalized.replace('-', ' ').split())
+            key = clean_for_search.lower()
+            if key in seen:
+                return
+            seen.add(key)
+            collected.append(clean_for_search)
+
+        collected_terms = []
+        seen_terms = set()
+
+        # Prioritize phrases (often multi-word entities)
+        for phrase in phrases:
+            add_term(phrase, collected_terms, seen_terms)
+            if len(collected_terms) >= MAX_QUERY_TERMS:
+                break
+
+        # Add core keywords (limit)
+        if len(collected_terms) < MAX_QUERY_TERMS:
+            for keyword in keywords:
+                if len(collected_terms) >= MAX_QUERY_TERMS or len(collected_terms) >= MAX_KEYWORD_TERMS + len(phrases):
+                    break
+                add_term(keyword, collected_terms, seen_terms)
+
+        # Add trimmed political expansion terms
+        if len(collected_terms) < MAX_QUERY_TERMS:
+            for term in semantic_terms:
+                if len(collected_terms) >= MAX_QUERY_TERMS:
+                    break
+                add_term(term, collected_terms, seen_terms)
+
+        # Fallback: use parts of the original query if still empty
+        if not collected_terms and original_query:
+            for token in original_query.split():
+                add_term(token, collected_terms, seen_terms)
+                if len(collected_terms) >= MAX_QUERY_TERMS:
+                    break
+
+        return collected_terms
+
     def _build_search_query(self, parsed_query: dict) -> str:
         """
         Build Semantic Scholar search query
         """
-        all_terms = parsed_query.get('all_terms', [])
-
-        if not all_terms:
-            return ''
-
-        # Build query - Semantic Scholar works well with space-separated terms
-        # For phrases, we keep them together; for keywords, we join with spaces
-        search_terms = []
-        for term in all_terms:
-            search_terms.append(term)
-
-        return ' '.join(search_terms)
+        terms = self._collect_query_terms(parsed_query)
+        return ' '.join(terms)
 
     def _rate_limit(self):
         """Implement rate limiting"""
@@ -469,9 +519,12 @@ class SemanticScholarClient:
             time.sleep(self.request_delay - elapsed)
         self.last_request_time = time.time()
 
-    def _search_semantic_scholar(self, query: str, parsed_query: dict) -> List[Dict]:
+    def _search_semantic_scholar(self, query_terms: List[str], parsed_query: dict, attempt: int = 1) -> List[Dict]:
         """Search Semantic Scholar and return papers"""
         self._rate_limit()
+
+        query = ' '.join(query_terms)
+        self.last_query_terms = query_terms.copy()
 
         try:
             # Extract filters
@@ -484,29 +537,46 @@ class SemanticScholarClient:
             max_results = self._adjust_max_results(parsed_query)
 
             # Build query parameters
+            # Semantic Scholar API: query, limit, offset, fields, sort (relevance|citationCount|year)
             params = {
                 'query': query,
                 'limit': max_results,
                 'fields': 'paperId,title,abstract,authors,year,url,citationCount'
             }
 
-            # Add year filters if specified
-            if year:
-                params['year'] = str(year)
-            elif year_min or year_max:
-                # Semantic Scholar API supports year ranges via query string
-                # We'll filter after receiving results for more flexibility
-                pass
-
-            # Determine sort order
+            # Determine sort order - Semantic Scholar supports: relevance, citationCount, year
             sort_order = self._determine_sort_order(parsed_query)
-            params['sort'] = sort_order
+            if sort_order and sort_order != 'relevance':
+                params['sort'] = sort_order
+
+            # Note: Semantic Scholar doesn't support year in query params, we filter after
+            logger.debug(
+                "Semantic Scholar API call (attempt %d): %s | params=%s",
+                attempt,
+                self.base_url,
+                params
+            )
 
             response = requests.get(self.base_url, params=params, timeout=10)
+            
+            # Log response status for debugging
+            logger.debug(f"Semantic Scholar API response status: {response.status_code}")
             response.raise_for_status()
 
             data = response.json()
+            
+            # Check for API errors in response
+            if 'error' in data:
+                logger.error(f"Semantic Scholar API error in response: {data.get('error')}")
+                return []
+            
             papers_data = data.get('data', [])
+            
+            if not papers_data:
+                logger.debug(f"Semantic Scholar returned no papers for query: '{query}'")
+                return []
+
+            logger.debug(f"Semantic Scholar returned {len(papers_data)} papers before filtering")
 
             # Parse and filter papers
             papers = []
@@ -515,13 +585,38 @@ class SemanticScholarClient:
                 if paper:
                     papers.append(paper)
 
+            logger.debug(f"Semantic Scholar parsed {len(papers)} papers after filtering")
+            if attempt == 1:
+                self.last_rate_limited = False
             return papers
 
         except requests.RequestException as e:
+            status_code = getattr(getattr(e, 'response', None), 'status_code', None)
             logger.error(f"Semantic Scholar search error: {e}")
+            if hasattr(e, 'response') and e.response is not None:
+                logger.error(f"Response status: {e.response.status_code}")
+                try:
+                    error_text = e.response.text[:500]
+                    logger.error(f"Response text: {error_text}")
+                except:
+                    pass
+
+            # Retry once on rate limiting with a trimmed term list
+            if status_code == 429 and attempt == 1 and len(query_terms) > 4:
+                self.last_rate_limited = True
+                trimmed_terms = query_terms[:max(4, len(query_terms) // 2)]
+                logger.warning(
+                    "Semantic Scholar rate limited. Retrying with trimmed query terms: %s",
+                    trimmed_terms
+                )
+                return self._search_semantic_scholar(trimmed_terms, parsed_query, attempt=attempt + 1)
+
+            if status_code == 429:
+                self.last_rate_limited = True
+
             return []
         except Exception as e:
-            logger.error(f"Error processing Semantic Scholar response: {e}")
+            logger.error(f"Error processing Semantic Scholar response: {e}", exc_info=True)
             return []
 
     def _parse_paper(self, paper_data: dict, filters: dict = None) -> Dict:
@@ -543,25 +638,36 @@ class SemanticScholarClient:
         elif year_max and year and year > year_max:
             return None
 
-        # Extract authors
+        # Extract authors - handle None or missing authors
         authors_list = paper_data.get('authors', [])
         author_names = []
-        for author in authors_list[:5]:  # Limit to first 5 authors
-            name = author.get('name', '')
-            if name:
-                author_names.append(name)
+        
+        if authors_list:
+            # Handle case where authors might be None or empty list
+            for author in authors_list[:5]:  # Limit to first 5 authors
+                if author:  # Check if author is not None
+                    # Authors can be dict with 'name' key or just a string
+                    if isinstance(author, dict):
+                        name = author.get('name', '')
+                    elif isinstance(author, str):
+                        name = author
+                    else:
+                        name = str(author)
+                    
+                    if name:
+                        author_names.append(name)
 
         author_str = ', '.join(author_names) if author_names else 'Unknown'
-        if len(authors_list) > 5:
+        if authors_list and len(authors_list) > 5:
             author_str += ' et al.'
 
         # Extract title
-        title = paper_data.get('title', 'No title')
+        title = paper_data.get('title')
         if not title:
             title = 'No title'
 
-        # Extract abstract
-        abstract = paper_data.get('abstract', '')
+        # Extract abstract - handle None
+        abstract = paper_data.get('abstract')
         if not abstract:
             abstract = 'No abstract available'
 
@@ -575,9 +681,9 @@ class SemanticScholarClient:
                 url = '#'
 
         return {
-            'title': title,
+            'title': str(title) if title else 'No title',
             'authors': author_str,
-            'abstract': abstract,
+            'abstract': str(abstract) if abstract else 'No abstract available',
             'source': 'semantic_scholar',
             'year': year,
             'link': url

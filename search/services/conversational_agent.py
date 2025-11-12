@@ -27,6 +27,110 @@ VALID_SHORT_TERMS = {
     'us', 'uk', 'eu', 'un', 'who',
 }
 
+# Mapping broad political labels to concrete academic topics
+POLITICAL_TOPIC_MAPPINGS = {
+    "left-wing": [
+        "socialism", "communism", "marxism", "marxist", "social democracy",
+        "progressive", "egalitarian", "collectivism", "anti-capitalism",
+        "democratic socialism", "anarchism", "anarcho-syndicalism",
+        "labor movement", "workers' rights", "class struggle",
+        "redistribution of wealth", "public ownership", "welfare state",
+        "intersectionality", "anti-imperialism", "anti-colonialism",
+        "environmental justice", "green politics", "feminism", "queer theory",
+        "left-libertarianism", "mutual aid", "solidarity economy"
+    ],
+    "right-wing": [
+        "conservatism", "nationalism", "patriotism", "free market",
+        "capitalism", "classical liberalism", "economic liberalism",
+        "traditionalism", "religious right", "family values",
+        "law and order", "individualism", "anti-communism",
+        "neoliberalism", "libertarianism", "fiscal conservatism",
+        "social conservatism", "authoritarianism", "national sovereignty",
+        "patriarchy", "monarchism", "reactionary", "pro-business",
+        "cultural conservatism"
+    ],
+    "centrist": [
+        "centrism", "moderate", "pragmatism", "third way",
+        "social liberalism", "economic moderation",
+        "progressive capitalism", "fiscal responsibility",
+        "liberal democracy", "mixed economy", "consensus politics"
+    ],
+    "far-left": [
+        "communism", "revolutionary socialism", "marxism-leninism",
+        "maoism", "trotskyism", "autonomism", "left-communism",
+        "anarcho-communism", "anti-fascism", "radical left",
+        "anti-imperialist struggle"
+    ],
+    "far-right": [
+        "fascism", "neo-fascism", "ultranationalism", "ethno-nationalism",
+        "white nationalism", "authoritarian right", "reactionary politics",
+        "alt-right", "identitarian movement", "neo-nazism",
+        "right-wing populism"
+    ],
+    "libertarian": [
+        "libertarianism", "anarcho-capitalism", "minarchism",
+        "individual liberty", "self-ownership", "free markets",
+        "non-aggression principle", "anti-statism"
+    ],
+    "authoritarian": [
+        "authoritarianism", "strong state", "state control",
+        "centralization of power", "law and order", "police state",
+        "national security", "militarism", "dictatorship"
+    ],
+    "progressive": [
+        "progressivism", "social reform", "equality",
+        "civil rights", "environmentalism", "climate justice",
+        "feminism", "lgbtq rights", "economic justice",
+        "racial equality", "inclusive policy"
+    ],
+    "reactionary": [
+        "reactionary", "counter-revolution", "traditional order",
+        "anti-modernism", "monarchism", "religious fundamentalism",
+        "anti-progressivism"
+    ],
+    "populist": [
+        "populism", "anti-elite", "people's movement",
+        "grassroots movement", "national populism",
+        "economic nationalism", "anti-globalism"
+    ],
+    "globalist": [
+        "globalism", "internationalism", "multilateralism",
+        "cosmopolitanism", "global cooperation", "united nations",
+        "world trade organization", "international trade", "climate cooperation",
+        "un", "wto"
+    ],
+    "anti-globalist": [
+        "anti-globalism", "national sovereignty", "economic nationalism",
+        "protectionism", "anti-globalization movement"
+    ]
+}
+
+AMBIGUOUS_POLITICAL_TERMS = {
+    'political', 'politics', 'ideology', 'partisan', 'partisanship',
+    'left-right', 'left right', 'politicized'
+}
+
+PAPER_TYPE_KEYWORDS = {
+    'journal': ['journal', 'peer reviewed', 'peer-reviewed', 'peer review', 'scholarly journal', 'academic journal'],
+    'conference': ['conference', 'proceedings', 'workshop', 'symposium'],
+    'thesis': ['thesis', 'dissertation', 'masters thesis', 'doctoral thesis'],
+    'report': ['technical report', 'white paper', 'government report', 'policy brief']
+}
+
+PAPER_TYPE_NORMALIZATION = {
+    'peer-reviewed': 'journal',
+    'peer reviewed': 'journal',
+    'scholarly journal': 'journal',
+    'academic journal': 'journal',
+    'proceedings': 'conference',
+    'symposium': 'conference',
+    'workshop': 'conference',
+    'white paper': 'report',
+    'technical report': 'report',
+    'policy brief': 'report'
+}
+
+MAX_POLITICAL_EXPANSION = 6
 
 class ResearchAgent:
     """
@@ -58,6 +162,8 @@ class ResearchAgent:
 
         # Last query context (per session)
         self.query_context = {}
+        self.semantic_scholar_rate_limited = False
+        self.semantic_scholar_last_query_terms = []
 
     def get_or_create_chat(self, session_id: str):
         """Get existing chat session or create new one"""
@@ -524,25 +630,75 @@ Output:"""
                 'suggestions': []
             }
 
-        # Check for political terms
-        political_terms = [
-            'left-wing', 'right-wing', 'liberal', 'conservative', 'democrat', 'republican',
-            'political', 'politics', 'election', 'government', 'policy', 'ideology',
-            'socialism', 'communism', 'capitalism', 'fascism', 'authoritarian'
-        ]
+        # Expand broad political labels into more specific academic topics
+        if not isinstance(all_terms, list):
+            all_terms = list(all_terms)
 
-        query_text = ' '.join(all_terms).lower()
-        if any(term in query_text for term in political_terms):
+        combined_terms_text = ' '.join(str(term) for term in all_terms)
+        search_source_text = f"{original_message} {combined_terms_text}".lower()
+        query_text = combined_terms_text.lower()
+
+        keywords = parsed_query.get('keywords') or []
+        if not isinstance(keywords, list):
+            keywords = list(keywords)
+
+        all_terms_set = {str(term).lower() for term in all_terms}
+        keywords_set = {str(term).lower() for term in keywords}
+
+        matched_political_labels = []
+        expanded_terms = []
+        semantic_scholar_terms = []
+        for label, replacements in POLITICAL_TOPIC_MAPPINGS.items():
+            label_normalized = label.lower()
+            if label_normalized in search_source_text:
+                matched_political_labels.append(label)
+                limited_replacements = replacements[:MAX_POLITICAL_EXPANSION]
+                for replacement in replacements:
+                    replacement_lower = replacement.lower()
+                    if replacement_lower not in all_terms_set:
+                        all_terms.append(replacement)
+                        all_terms_set.add(replacement_lower)
+                        expanded_terms.append(replacement)
+                    if replacement_lower not in keywords_set:
+                        keywords.append(replacement)
+                        keywords_set.add(replacement_lower)
+                for replacement in limited_replacements:
+                    replacement_lower = replacement.lower()
+                    if not any(term.lower() == replacement_lower for term in semantic_scholar_terms):
+                        semantic_scholar_terms.append(replacement)
+
+        if matched_political_labels:
+            parsed_query['all_terms'] = all_terms
+            parsed_query['keywords'] = keywords
+            parsed_query['political_term_expansions'] = {
+                label: POLITICAL_TOPIC_MAPPINGS[label]
+                for label in matched_political_labels
+            }
+            parsed_query['semantic_scholar_terms'] = semantic_scholar_terms
+            logger.debug(
+                "Expanded political labels %s into %d additional search terms",
+                matched_political_labels,
+                len(expanded_terms)
+            )
+        else:
+            parsed_query['semantic_scholar_terms'] = []
+
+        # If the message still contains ambiguous political language with no specific context, ask for clarification
+        if any(term in search_source_text for term in AMBIGUOUS_POLITICAL_TERMS) and not matched_political_labels:
             return {
                 'needs_clarification': True,
                 'reason': 'political_terms',
-                'message': "I notice your query contains political terms. For academic research, I recommend focusing on specific research topics rather than political viewpoints. Could you rephrase your query to focus on the academic subject matter?",
+                'message': "Your query includes broad political language. Could you specify the concrete policy area, region, or historical event you're interested in researching?",
                 'suggestions': [
-                    "Try: 'research on economic inequality'",
-                    "Try: 'studies on democratic institutions'",
-                    "Try: 'academic analysis of policy effectiveness'"
+                    "Try: 'comparative study of voting turnout policies'",
+                    "Try: 'impact of authoritarian regimes on economic growth'",
+                    "Try: 'studies on democratic institution reforms'"
                 ]
             }
+
+        # Ensure parsed_query keeps the possibly updated lists
+        parsed_query['all_terms'] = all_terms
+        parsed_query['keywords'] = keywords
 
         # Check for subjective terms
         subjective_terms = [
@@ -602,11 +758,15 @@ User: {user_message}"""
         Execute search using parsed query
         """
         print(f"Searching with query: {parsed_query}")
+        self.semantic_scholar_rate_limited = False
+        self.semantic_scholar_last_query_terms = []
 
         # Search all APIs
         arxiv_results = arxiv_client.search(parsed_query)
         pubmed_results = pubmed_client.search(parsed_query)
         semantic_scholar_results = semantic_scholar_client.search(parsed_query)
+        self.semantic_scholar_rate_limited = getattr(semantic_scholar_client, "last_rate_limited", False)
+        self.semantic_scholar_last_query_terms = getattr(semantic_scholar_client, "last_query_terms", [])
 
         all_results = arxiv_results + pubmed_results + semantic_scholar_results
 
@@ -623,14 +783,27 @@ User: {user_message}"""
         """
         count = len(results)
 
+        rate_limited_note = ""
+        if getattr(self, 'semantic_scholar_rate_limited', False):
+            rate_limited_note = (
+                "\n\nNote: Semantic Scholar temporarily rate limited the request, "
+                "so you may want to retry or narrow the query if you're looking for more results."
+            )
+
         if count == 0:
-            return f"I couldn't find any papers matching '{original_query}'. Try rephrasing or broadening your search."
+            base_message = (
+                f"I couldn't find any papers matching '{original_query}'. "
+                "Try rephrasing or broadening your search."
+            )
+            if rate_limited_note:
+                base_message += rate_limited_note
+            return base_message
         elif count == 1:
-            return f"I found 1 paper matching your query. Check it out below!"
+            return f"I found 1 paper matching your query. Check it out below!{rate_limited_note}"
         elif count <= 5:
-            return f"I found {count} papers matching your query. Here they are:"
+            return f"I found {count} papers matching your query. Here they are:{rate_limited_note}"
         else:
-            return f"I found {count} papers matching your query. Here are the most relevant ones:"
+            return f"I found {count} papers matching your query. Here are the most relevant ones:{rate_limited_note}"
 
     def get_citations(self, session_id: str, paper_indices: list, style: str = 'apa') -> list:
         """
