@@ -48,7 +48,7 @@ Mayele is a conversational research assistant that translates natural language q
 ### Installation
 
 ```bash
-git clone https://github.com/your-username/mayele.git
+git clone https://github.com/Mikelane64/INSE-6421-Project.git
 cd mayele
 
 python -m venv .venv
